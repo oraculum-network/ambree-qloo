@@ -98,12 +98,15 @@ export function createDemoTransport(data: DemoData = loadDemoData()): QlooTransp
     const signalTags = list(p["signal.interests.tags"]);
     const filterTags = list(p["filter.tags"]);
     const country = p["filter.geocode.country_code"];
+    // Every demo place is in Mauritius, so a location query for anywhere else matches none.
+    const location = p["filter.location.query"];
     const town = p["filter.geocode.name"];
     const take = Math.max(1, Math.min(50, Number(p.take ?? "20") || 20));
 
     const kept = pool.filter((e) => {
       const g = e.properties?.geocode ?? {};
       if (country && g.country_code !== country) return false;
+      if (location !== undefined && fold(location) !== "mauritius") return false;
       if (town && fold(g.city ?? g.name ?? "") !== fold(town)) return false;
       if (filterTags.length && !(e.tags ?? []).some((t) => t.id && filterTags.includes(t.id))) return false;
       return true;

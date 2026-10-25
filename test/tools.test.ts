@@ -2,9 +2,12 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { LogRecord } from "../src/log.ts";
+import { PLACE_TYPE, insightsParams } from "../src/qloo/client.ts";
+import { InsightsResponse } from "../src/qloo/contract.ts";
+import { createDemoTransport } from "../src/qloo/fixtures.ts";
 import type { ToolOutcome } from "../src/tools/context.ts";
-import { type PlanDayOutput, planDay, planDayInput } from "../src/tools/plan-day.ts";
-import { rankPlaces, rankPlacesInput } from "../src/tools/rank-places.ts";
+import { type PlanDayOutput, planDay, planDayInput, planDayOutput } from "../src/tools/plan-day.ts";
+import { MU_BY_COUNTRY, MU_BY_LOCATION, MU_FILTER, rankIn, rankPlaces, rankPlacesInput } from "../src/tools/rank-places.ts";
 import { resolveTastes, resolveTastesInput } from "../src/tools/resolve-tastes.ts";
 import { sentences } from "../src/tools/speech.ts";
 import { demoDeps, liveDeps, startQlooMock } from "./helpers/deps.ts";
@@ -114,8 +117,27 @@ describe("rank_places", () => {
     expect(out.dropped_non_mu).toBe(1);
     expect(out.places[1]!.location_unverified).toBe(true);
     expect(out.places[0]!.location_unverified).toBeUndefined();
+    // A spoken place with no country code: the speech doesn't claim "in Mauritius".
+    expect(out.speech).toBe("Qloo's top places for you are Here in Curepipe and Unknown Code.");
     const q = insightsCalls(mock)[0]!;
     expect(q).toMatchObject({ "filter.type": "urn:entity:place", "signal.interests.entities": "e1", "filter.geocode.country_code": "MU", "feature.explainability": "true", take: "15" });
+  });
+
+  it("the MU filter: country code by default; the location fallback sends filter.location.query and the guard still keeps MU", async () => {
+    expect(MU_FILTER).toBe(MU_BY_COUNTRY);
+    const byLocation = insightsParams({ type: PLACE_TYPE, entities: ["e1"], ...MU_BY_LOCATION, take: 5 });
+    expect(byLocation["filter.location.query"]).toBe("Mauritius");
+    expect(byLocation["filter.geocode.country_code"]).toBeUndefined();
+    mock = await startQlooMock({ places: [{ name: "Here", country: "MU", affinity: 0.9 }, { name: "Lower Case", country: "mu", affinity: 0.8 }, { name: "Abroad", country: "RE", affinity: 0.7 }] });
+    const { places, dropped_non_mu } = await rankIn(liveDeps(mock).qloo.reply(), { type: PLACE_TYPE, entities: ["e1"], take: 5 }, new Map());
+    expect(places.map((p) => p.name)).toEqual(["Here", "Lower Case"]);
+    expect(dropped_non_mu).toBe(1);
+    // The demo transport answers the fallback too, and only for Mauritius.
+    const demo = createDemoTransport();
+    const count = async (locationQuery: string) =>
+      InsightsResponse.parse((await demo.get("insights", insightsParams({ type: PLACE_TYPE, entities: ["e1"], locationQuery, take: 50 }))).body).results.entities.length;
+    expect(await count("Mauritius")).toBeGreaterThan(0);
+    expect(await count("France")).toBe(0);
   });
 
   it("destination without entity_ids is an isError", async () => {
@@ -225,6 +247,16 @@ describe("plan_day", () => {
     mock = await startQlooMock({ places: [0.9, 0.8, 0.7, 0.6].map((a, i) => ({ name: `Sight ${i}`, country: "MU", tags: ["Museum"], affinity: a })) });
     const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
     expect(out.day.map((s) => s.place)).toEqual(["Sight 0", "Sight 1", "Sight 2", "Sight 3"]);
+  });
+
+  it("a stop with no country code from Qloo keeps location_unverified", async () => {
+    mock = await startQlooMock({ places: [{ name: "Sure", country: "MU", tags: ["Museum"], affinity: 0.9 }, { name: "Unsure", tags: ["Museum"], affinity: 0.8 }] });
+    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
+    expect(out.day.map((s) => [s.place, s.location_unverified])).toEqual([
+      ["Sure", undefined],
+      ["Unsure", true],
+    ]);
+    expect(planDayOutput.safeParse(out).success).toBe(true);
   });
 
   it("no tastes matched → an empty day, said so, no insights call", async () => {

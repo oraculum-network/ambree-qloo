@@ -82,7 +82,8 @@ kubectl -n qloo exec deploy/qloo-web -- node scripts/smoke.ts
 curl -s https://qloo.ambree.ai/healthz
 ```
 
-The smoke run prints 3 `OK` lines, the Mauritius count and `RESULT: OK`, and exits 0. `/healthz` then shows
+The smoke run prints 3 `OK` lines, the Mauritius count and `RESULT: OK`, and exits 0. `FAIL MU check` means no
+result had `country_code` MU; README "Check the live contract" says how to switch `MU_FILTER`. `/healthz` then shows
 `"mode":"live"`; on its own that shows only that a key is set, not that it works. TODO-CHECK: item 01 lists only
 `rollout-status`, `revision` and `get` as gate verbs (`items/01-prod/PLAN.md:136`), so `exec` and `rollout restart`
 may need host-side kubectl rather than the gate.

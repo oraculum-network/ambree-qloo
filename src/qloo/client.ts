@@ -57,10 +57,15 @@ export interface InsightsParams {
   filterTags?: string[];
   /** filter.geocode.country_code */
   countryCode?: string;
+  /** filter.location.query (a place name Qloo geocodes) */
+  locationQuery?: string;
   /** filter.geocode.name (usually a city or town) */
   town?: string;
   take: number;
 }
+
+/** The part of InsightsParams that restricts results to one country. */
+export type CountryFilter = Pick<InsightsParams, "countryCode" | "locationQuery">;
 
 export function searchParams(query: string, type: string, take = 1): Params {
   return { query, types: type, take: String(take) };
@@ -77,6 +82,7 @@ export function insightsParams(p: InsightsParams): Params {
   if (p.tags?.length) out["signal.interests.tags"] = p.tags.join(",");
   if (p.filterTags?.length) out["filter.tags"] = p.filterTags.join(",");
   if (p.countryCode) out["filter.geocode.country_code"] = p.countryCode;
+  if (p.locationQuery) out["filter.location.query"] = p.locationQuery;
   if (p.town) out["filter.geocode.name"] = p.town;
   out["feature.explainability"] = "true";
   out.take = String(Math.max(1, Math.min(50, Math.round(p.take))));

@@ -102,7 +102,11 @@ It asks for the key at a hidden prompt (or reads `QLOO_API_KEY` from the environ
 from the command line). It makes exactly three calls, one per endpoint, checks each response against the contract
 in `src/qloo/contract.ts`, and prints `OK` lines or the exact mismatched paths, how many results are in Mauritius,
 and which optional place fields appeared. It never prints bodies, names, headers or the key, and writes no files.
-Exit codes: 0 all OK, 1 a mismatch or HTTP error, 2 no key or bad config.
+Exit codes: 0 all OK, 1 a mismatch, an HTTP error or a failed Mauritius check, 2 no key or bad config.
+
+`FAIL MU check` means no insights result had `country_code` MU: Qloo ignored the country filter, or gives places no
+country code. Smoke sends the app's own filter, `MU_FILTER` in `src/tools/rank-places.ts`. To try the other one, set
+it to `MU_BY_LOCATION` (`filter.location.query=Mauritius`), run `npm test`, then rerun smoke.
 
 ## Data policy
 

@@ -3,13 +3,23 @@
 // apply, so the country filter is checked again here.
 
 import { z } from "zod";
-import { DESTINATION_TYPE, type InsightsParams, PLACE_TYPE, QlooError, type QlooReply } from "../qloo/client.ts";
+import { type CountryFilter, DESTINATION_TYPE, type InsightsParams, PLACE_TYPE, QlooError, type QlooReply } from "../qloo/client.ts";
 import { type InsightsEntity, affinityOf, explainedBy, townOf } from "../qloo/contract.ts";
 import { type ToolDeps, type ToolOutcome, fail, modeOut, noticeOut, qlooCallsOut, qlooFailure } from "./context.ts";
 import { joinNames, speak, spokenName } from "./speech.ts";
 
-/** The Mauritius filter. If smoke shows Qloo ignores it, the fallback is filter.location.query=Mauritius. */
+/** Mauritius's country code in Qloo's results. The guard compares against it, whichever filter is sent. */
 export const COUNTRY_CODE = "MU";
+
+/** The two ways to ask Qloo Insights for Mauritius. */
+export const MU_BY_COUNTRY: CountryFilter = { countryCode: COUNTRY_CODE };
+export const MU_BY_LOCATION: CountryFilter = { locationQuery: "Mauritius" };
+
+/**
+ * The filter in use (smoke sends the same one). If `npm run smoke` prints "FAIL MU check",
+ * Qloo ignored it: set this to MU_BY_LOCATION, run npm test, then rerun smoke.
+ */
+export const MU_FILTER: CountryFilter = MU_BY_COUNTRY;
 const PLACE = "urn:entity:place";
 
 export const rankPlacesInput = z.object({
@@ -76,10 +86,10 @@ function toRanked(e: InsightsEntity, names: SignalNames, signalTags: Set<string>
 }
 
 /** One insights call in Mauritius, the MU guard, then results by affinity. */
-export async function rankIn(reply: QlooReply, params: Omit<InsightsParams, "countryCode">, names: SignalNames): Promise<Ranked> {
+export async function rankIn(reply: QlooReply, params: Omit<InsightsParams, keyof CountryFilter>, names: SignalNames): Promise<Ranked> {
   let entities: InsightsEntity[];
   try {
-    ({ entities } = (await reply.insights({ ...params, countryCode: COUNTRY_CODE })).results);
+    ({ entities } = (await reply.insights({ ...params, ...MU_FILTER })).results);
   } catch (e) {
     // "At least one valid signal or filter is required": nothing to rank, not a failure.
     if (e instanceof QlooError && e.kind === "http" && e.status === 400 && /signal/i.test(e.message)) entities = [];
@@ -139,14 +149,16 @@ export async function rankPlaces(args: RankPlacesInput, deps: ToolDeps): Promise
     const places = ranked.places.slice(0, args.take);
     const what = args.kind === "destination" ? "destinations" : "places";
     const top = places.slice(0, 3);
+    // "in Mauritius" only when Qloo gave each spoken place a country code.
+    const where = top.some((p) => p.location_unverified) ? "" : " in Mauritius";
     const speech = !places.length
       ? speak(reply.mode, reply.notice, `Qloo found no ${what} in Mauritius for those tastes${args.town ? ` in ${spokenName(args.town)}` : ""}.`, `Qloo found no ${what} in Mauritius for those tastes.`)
       : speak(
           reply.mode,
           reply.notice,
-          `Qloo's top ${what} in Mauritius for you are ${joinNames(top.map((p) => (p.town ? `${spokenName(p.name)} in ${spokenName(p.town)}` : spokenName(p.name))))}.`,
-          `Qloo's top ${what} in Mauritius for you are ${joinNames(top.map((p) => spokenName(p.name)))}.`,
-          `Qloo's top pick in Mauritius for you is ${spokenName(top[0]!.name)}.`,
+          `Qloo's top ${what}${where} for you are ${joinNames(top.map((p) => (p.town ? `${spokenName(p.name)} in ${spokenName(p.town)}` : spokenName(p.name))))}.`,
+          `Qloo's top ${what}${where} for you are ${joinNames(top.map((p) => spokenName(p.name)))}.`,
+          `Qloo's top pick${where} for you is ${spokenName(top[0]!.name)}.`,
         );
     return {
       ok: true,

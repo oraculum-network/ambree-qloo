@@ -32,6 +32,7 @@ export const stopOut = z.object({
   affinity: z.number(),
   tags: z.array(z.string()),
   why: z.string().describe("Which of the traveller's tastes led here."),
+  location_unverified: z.boolean().optional().describe("true when Qloo gave no country code for this place."),
 });
 export type Stop = z.infer<typeof stopOut>;
 
@@ -115,6 +116,7 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
         affinity: place.affinity,
         tags: place.tags,
         why: whyFor(place),
+        ...(place.location_unverified ? { location_unverified: true } : {}),
       }));
     }
   } catch (e) {

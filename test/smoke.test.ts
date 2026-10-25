@@ -55,7 +55,7 @@ describe("smoke", () => {
     expect(r.code, r.stdout + r.stderr).toBe(0);
     const ok = r.stdout.split("\n").filter((l) => l.startsWith("OK "));
     expect(ok).toEqual(["OK /search 200 1 results", "OK /v2/tags 200 3 results", "OK /v2/insights 200 5 results (signal: entity from /search)"]);
-    expect(r.stdout).toContain("MU check: 5 of 5 results have country_code MU");
+    expect(r.stdout).toContain("\nMU check: 5 of 5 results have country_code MU (filter: filter.geocode.country_code=MU)\n");
     expect(r.stdout).toContain("Optional fields seen: properties.geocode.name, properties.geocode.country_code, tags, query.affinity");
     expect(r.stdout).toContain("RESULT: OK");
     expect(paths()).toEqual(["/search", "/v2/tags", "/v2/insights"]);
@@ -115,6 +115,33 @@ describe("smoke", () => {
     expect(q["signal.interests.tags"]).toBe("urn:tag:demo:test_0");
     expect(q["signal.interests.entities"]).toBeUndefined();
     expect(mock.requests).toHaveLength(3);
+  });
+
+  it("insights with no MU results (Qloo ignored the filter) → FAIL MU check, exit 1", async () => {
+    mock.setHandler((req, res) => {
+      const path = new URL(req.url, "http://x").pathname;
+      if (path === "/search") return json(res, 200, searchBody());
+      if (path === "/v2/tags") return json(res, 200, tagsBody(3));
+      json(res, 200, insightsBodyA(5, "FR"));
+    });
+    const r = await smoke({ stdin: `${SENTINEL_KEY}\n`, env: withMock() });
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("OK /v2/insights 200 5 results");
+    expect(r.stdout).toContain("FAIL MU check: 0 of 5 results have country_code MU (filter: filter.geocode.country_code=MU)");
+    expect(r.stdout).toContain("RESULT: FAIL");
+  });
+
+  it("insights with no results at all → FAIL MU check, exit 1", async () => {
+    mock.setHandler((req, res) => {
+      const path = new URL(req.url, "http://x").pathname;
+      if (path === "/search") return json(res, 200, searchBody());
+      if (path === "/v2/tags") return json(res, 200, tagsBody(3));
+      json(res, 200, insightsBodyA(0));
+    });
+    const r = await smoke({ stdin: `${SENTINEL_KEY}\n`, env: withMock() });
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("FAIL MU check: 0 of 0 results have country_code MU");
+    expect(r.stdout).toContain("RESULT: FAIL");
   });
 
   it("no key, no TTY, empty stdin → exit 2", async () => {

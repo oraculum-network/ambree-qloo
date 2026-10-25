@@ -2,10 +2,11 @@
 //   1. GET /search      ?query=Kaya&types=urn:entity:artist&take=1
 //   2. GET /v2/tags     ?filter.query=beach&take=3
 //   3. GET /v2/insights ?filter.type=urn:entity:place&signal.interests.entities=<id from 1>
-//                       &filter.geocode.country_code=MU&feature.explainability=true&take=5
+//                       &<the app's MU_FILTER>&feature.explainability=true&take=5
 //      (if call 1 found nothing, signal.interests.tags=<id from 2> instead)
 // Each body is checked against the contract (src/qloo/contract.ts). It prints OK or the
-// mismatched paths, the Mauritius count and which optional place fields appeared.
+// mismatched paths, the Mauritius count and which optional place fields appeared. The
+// Mauritius check fails when insights returns nothing or no result has country_code MU.
 // It never prints bodies, names, headers or the key, and writes no files.
 //
 // The key: QLOO_API_KEY from the environment if set (inside the pod); else a hidden prompt
@@ -16,6 +17,7 @@ import { ConfigError, QLOO_HACKATHON_BASE, qlooBaseOf } from "../src/config.ts";
 import { type Params, insightsParams, searchParams, tagsParams } from "../src/qloo/client.ts";
 import { ENDPOINT_PATHS, type Endpoint, InsightsResponse, SearchResponse, TagsResponse, checkShape } from "../src/qloo/contract.ts";
 import { CappedFetchError, fetchCapped } from "../src/qloo/fetch.ts";
+import { COUNTRY_CODE, MU_FILTER } from "../src/tools/rank-places.ts";
 
 const out = (line: string) => process.stdout.write(`${line}\n`);
 const err = (line: string) => process.stderr.write(`${line}\n`);
@@ -160,17 +162,19 @@ async function main(): Promise<number> {
     out("SKIP insights: no signal");
     return 1;
   }
-  const i = await call(
-    base,
-    key,
-    "insights",
-    insightsParams({ type: "urn:entity:place", ...(entity ? { entities: [entity] } : { tags: [tag!] }), countryCode: "MU", take: 5 }),
-  );
+  const params = insightsParams({ type: "urn:entity:place", ...(entity ? { entities: [entity] } : { tags: [tag!] }), ...MU_FILTER, take: 5 });
+  const filter = Object.entries(params).find(([k]) => k === "filter.geocode.country_code" || k === "filter.location.query");
+  const i = await call(base, key, "insights", params);
   if (i.ok) {
     const entities = InsightsResponse.parse(i.body).results.entities;
     out(`OK /v2/insights 200 ${entities.length} results (signal: ${entity ? "entity from /search" : "tag from /v2/tags"})`);
-    const mu = entities.filter((e) => e.properties?.geocode?.country_code === "MU").length;
-    out(`MU check: ${mu} of ${entities.length} results have country_code MU`);
+    const mu = entities.filter((e) => e.properties?.geocode?.country_code?.toUpperCase() === COUNTRY_CODE).length;
+    const line = `${mu} of ${entities.length} results have country_code ${COUNTRY_CODE} (filter: ${filter ? filter.join("=") : "none"})`;
+    if (mu === 0) {
+      // Qloo ignored the filter, or gave no country codes: either way the app can't trust its days.
+      out(`FAIL MU check: ${line}`);
+      failed = true;
+    } else out(`MU check: ${line}`);
     const raw = (i.body as { results: { entities: Array<Record<string, unknown>> } }).results.entities;
     const seen = OPTIONAL_PLACE_FIELDS.filter(([, get]) => raw.some((e) => get(e) !== undefined)).map(([name]) => name);
     out(`Optional fields seen: ${seen.length ? seen.join(", ") : "none"}`);
