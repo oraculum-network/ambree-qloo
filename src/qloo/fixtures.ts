@@ -42,8 +42,19 @@ export function syntheticId(seed: string): string {
   return `00000000-0000-4000-8000-0001${fnv1a(seed).toString(16).padStart(8, "0")}`;
 }
 
-/** A stable number in [0, 1) from a string. */
-const unit = (seed: string) => fnv1a(seed) / 0x1_0000_0000;
+/**
+ * A stable number in [0, 1) from a string. FNV-1a's high bits barely change when only the
+ * last characters differ (as the fixture IDs do), so the hash goes through murmur3's fmix32.
+ */
+function unit(seed: string): number {
+  let h = fnv1a(seed);
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b) >>> 0;
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35) >>> 0;
+  h ^= h >>> 16;
+  return (h >>> 0) / 0x1_0000_0000;
+}
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 const list = (v: string | undefined) => (v ? v.split(",").map((x) => x.trim()).filter(Boolean) : []);
 const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();

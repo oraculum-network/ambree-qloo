@@ -52,6 +52,25 @@ describe("static files", () => {
   });
 });
 
+describe("the demo page", () => {
+  it("has no inline scripts or styles and no external URLs but the source link", async () => {
+    const html = await (await fetch(`${t.url}/`)).text();
+    expect(html).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/);
+    expect(html).not.toMatch(/\sstyle=|<style/);
+    expect(html).not.toMatch(/\son[a-z]+=/);
+    const urls = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]!);
+    expect(urls.filter((u) => /^(https?:)?\/\//.test(u))).toEqual(["https://github.com/oraculum-network/ambree-qloo"]);
+    expect(html).toContain("Demo data: synthetic, not from Qloo.");
+    expect(html).toContain("Taste data powered by Qloo's API.");
+  });
+
+  it("serves the script, styles and fonts", async () => {
+    for (const path of ["/app.js", "/styles.css", "/favicon.svg", "/fonts/InstrumentSans.ttf", "/fonts/OFL-InstrumentSans.txt"]) {
+      expect((await fetch(`${t.url}${path}`)).status, path).toBe(200);
+    }
+  });
+});
+
 describe("health", () => {
   it("/healthz shows mode demo without a key", async () => {
     const res = await fetch(`${t.url}/healthz`);
