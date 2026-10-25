@@ -3,7 +3,7 @@
 
 import { z } from "zod";
 import type { Logger } from "../log.ts";
-import { type Qloo, QlooError } from "../qloo/client.ts";
+import { type Qloo, QlooError, isTypeDenied } from "../qloo/client.ts";
 import { capSpeech } from "./speech.ts";
 
 export interface ToolDeps {
@@ -49,9 +49,12 @@ export const modeOut = z.enum(["live", "demo"]).describe("live: Qloo's API. demo
 export const noticeOut = z.literal("live_unavailable").optional().describe("Set when live Qloo access failed and this reply fell back to demo data.");
 export const qlooCallsOut = z.array(z.object({ endpoint: z.string(), ms: z.int(), cached: z.boolean() })).describe("The Qloo calls behind this reply.");
 
-/** Search or tags found nothing: 404 "No results", or a 400 when a name matches nothing. */
-export function isNoMatch(e: unknown): boolean {
-  return e instanceof QlooError && e.kind === "http" && (e.status === 404 || e.status === 400);
+/**
+ * Search or tags found nothing for one taste: 404 "No results", a 400 when a name matches
+ * nothing, or a 403 for an entity type the key may not use.
+ */
+export function isNoMatch(e: unknown): e is QlooError {
+  return e instanceof QlooError && e.kind === "http" && (e.status === 404 || e.status === 400 || isTypeDenied(e));
 }
 
 /** The spoken message for a Qloo failure that ends the tool call. */

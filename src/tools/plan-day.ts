@@ -94,7 +94,7 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
   let unresolved: Unresolved[];
   let day: Stop[] = [];
   try {
-    ({ signals, unresolved } = await resolveAll(reply, args.tastes));
+    ({ signals, unresolved } = await resolveAll(reply, args.tastes, deps.log));
     if (signals.length) {
       const names: SignalNames = new Map(signals.map((s) => [s.id, s.input]));
       const ranked = await rankIn(

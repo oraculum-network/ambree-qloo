@@ -3,6 +3,7 @@
 // can't match is listed in `unresolved`, never guessed.
 
 import { z } from "zod";
+import type { Logger } from "../log.ts";
 import type { QlooReply } from "../qloo/client.ts";
 import {
   SEARCH_TYPES,
@@ -45,7 +46,7 @@ export type ResolveTastesOutput = z.infer<typeof resolveTastesOutput>;
 
 const PLACE = "urn:entity:place";
 
-async function resolveOne(reply: QlooReply, t: Taste): Promise<Signal | undefined> {
+async function resolveOne(reply: QlooReply, t: Taste, log: Logger): Promise<Signal | undefined> {
   try {
     if (t.kind === "food") {
       const { results } = await reply.tags(t.name, 5);
@@ -57,14 +58,17 @@ async function resolveOne(reply: QlooReply, t: Taste): Promise<Signal | undefine
     const hit = results[0];
     return hit && { input: t.name, kind: t.kind, id: hit.entity_id, name: hit.name, source: "entity" };
   } catch (e) {
-    if (isNoMatch(e)) return undefined;
-    throw e;
+    if (!isNoMatch(e)) throw e;
+    // The type and status only, never the taste: a 403 here is an entity type the key may not use.
+    const where = t.kind === "food" ? { endpoint: "/v2/tags", type: "tag" } : { endpoint: "/search", type: SEARCH_TYPES[t.kind] };
+    log({ level: e.status === 404 ? "info" : "warn", event: "qloo_no_match", endpoint: where.endpoint, status: e.status, type: where.type });
+    return undefined;
   }
 }
 
 /** Resolve every taste (in parallel); throws a QlooError only for a failure that isn't "no match". */
-export async function resolveAll(reply: QlooReply, tastes: Taste[]): Promise<{ signals: Signal[]; unresolved: Unresolved[] }> {
-  const found = await Promise.all(tastes.map((t) => resolveOne(reply, t)));
+export async function resolveAll(reply: QlooReply, tastes: Taste[], log: Logger): Promise<{ signals: Signal[]; unresolved: Unresolved[] }> {
+  const found = await Promise.all(tastes.map((t) => resolveOne(reply, t, log)));
   const signals: Signal[] = [];
   const unresolved: Unresolved[] = [];
   found.forEach((s, i) => {
@@ -78,7 +82,7 @@ export async function resolveTastes(args: ResolveTastesInput, deps: ToolDeps): P
   const reply = deps.qloo.reply(deps.client);
   let got: { signals: Signal[]; unresolved: Unresolved[] };
   try {
-    got = await resolveAll(reply, args.tastes);
+    got = await resolveAll(reply, args.tastes, deps.log);
   } catch (e) {
     return qlooFailure(e, deps.log);
   }

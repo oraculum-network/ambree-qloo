@@ -10,7 +10,7 @@ import { type PlanDayOutput, planDay, planDayInput, planDayOutput } from "../src
 import { MU_BY_COUNTRY, MU_BY_LOCATION, MU_FILTER, rankIn, rankPlaces, rankPlacesInput } from "../src/tools/rank-places.ts";
 import { resolveTastes, resolveTastesInput } from "../src/tools/resolve-tastes.ts";
 import { sentences } from "../src/tools/speech.ts";
-import { demoDeps, liveDeps, startQlooMock } from "./helpers/deps.ts";
+import { demoDeps, liveDeps, qlooHandler, startQlooMock } from "./helpers/deps.ts";
 import { type MockServer, json, queryOf } from "./helpers/mock-server.ts";
 
 let mock: MockServer | undefined;
@@ -93,6 +93,37 @@ describe("resolve_tastes", () => {
     expect(out.speech).toMatch(/^Qloo had no match for Gone or Empty/);
     mock.setHandler((_req, res) => json(res, 400, { code: 400, reason: "Bad Request", message: "no entities matched" }));
     expect(ok(await resolveTastes(resolveTastesInput.parse({ tastes: [{ kind: "film", name: "X" }] }), liveDeps(mock))).unresolved).toHaveLength(1);
+  });
+
+  it("no match is logged with endpoint, status and type, never the taste", async () => {
+    mock = await startQlooMock({ notFound: ["Gone Film"] });
+    const logs: LogRecord[] = [];
+    ok(await resolveTastes(resolveTastesInput.parse({ tastes: [{ kind: "film", name: "Gone Film" }] }), liveDeps(mock, logs)));
+    expect(logs).toContainEqual({ level: "info", event: "qloo_no_match", endpoint: "/search", status: 404, type: "urn:entity:movie" });
+    expect(JSON.stringify(logs)).not.toContain("Gone Film");
+  });
+
+  it("a 403 for one entity type → that taste unresolved, the rest of the reply stays live", async () => {
+    mock = await startQlooMock();
+    const normal = qlooHandler({});
+    mock.setHandler((req, res) => {
+      if (queryOf(req).types === "urn:entity:videogame") {
+        return json(res, 403, { code: 403, reason: "Forbidden", message: "You do not have permission to access urn:entity:videogame" });
+      }
+      return normal(req, res);
+    });
+    const logs: LogRecord[] = [];
+    const out = ok(await resolveTastes(resolveTastesInput.parse({ tastes: [{ kind: "music", name: "Kaya" }, { kind: "game", name: "Animal Crossing" }] }), liveDeps(mock, logs)));
+    expect(out.mode).toBe("live");
+    expect(out.notice).toBeUndefined();
+    expect(out.signals.map((s) => s.input)).toEqual(["Kaya"]);
+    expect(out.unresolved).toEqual([{ input: "Animal Crossing", kind: "game" }]);
+    expect(logs).toContainEqual(expect.objectContaining({ level: "warn", event: "qloo_no_match", status: 403, type: "urn:entity:videogame" }));
+    expect(logs.some((l) => l.event === "qloo_fallback")).toBe(false);
+    // A 403 that names no entity type still means the key is unusable: the reply falls back.
+    mock.setHandler((_req, res) => json(res, 403, { code: 403, reason: "Forbidden" }));
+    const dead = ok(await resolveTastes(resolveTastesInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
+    expect(dead).toMatchObject({ mode: "demo", notice: "live_unavailable" });
   });
 
   it("demo mode: every taste resolves to a synthetic entity or tag", async () => {

@@ -221,6 +221,14 @@ export function fallsBack(e: unknown): e is QlooError {
   return e instanceof QlooError && (e.kind === "quota" || (e.kind === "http" && (e.status === 401 || e.status === 403)));
 }
 
+/**
+ * Qloo's documented 403 for one entity type the key may not use ("You do not have permission
+ * to access urn:entity:..."). On /search that is one taste Qloo can't match, not a dead key.
+ */
+export function isTypeDenied(e: unknown): e is QlooError {
+  return e instanceof QlooError && e.kind === "http" && e.status === 403 && /permission to access urn:entity/i.test(e.message);
+}
+
 const PARSERS = { search: SearchResponse, tags: TagsResponse, insights: InsightsResponse } as const;
 
 export function createQloo(opts: { live?: QlooTransport; demo: QlooTransport; log: Logger }): Qloo {
@@ -241,7 +249,7 @@ export function createQloo(opts: { live?: QlooTransport; demo: QlooTransport; lo
         try {
           got = await used.get(endpoint, params, client);
         } catch (e) {
-          if (used !== live || !fallsBack(e)) {
+          if (used !== live || !fallsBack(e) || (endpoint === "search" && isTypeDenied(e))) {
             calls.push({ endpoint: ENDPOINT_PATHS[endpoint], ms: Math.round(performance.now() - started), cached: false });
             throw e;
           }

@@ -83,7 +83,13 @@ curl -s https://qloo.ambree.ai/healthz
 ```
 
 The smoke run prints 3 `OK` lines, the Mauritius count and `RESULT: OK`, and exits 0. `FAIL MU check` means no
-result had `country_code` MU; README "Check the live contract" says how to switch `MU_FILTER`. `/healthz` then shows
+result had `country_code` MU; README "Check the live contract" says how to switch `MU_FILTER`.
+
+Smoke searches one artist only. Then click the page's three example chips once, in live mode: the page should show no
+"Qloo had no match for: …" line, and each turn under "Under the hood" should be badged "Live Qloo", not "Demo data".
+An unmatched taste shows up in the pod log as
+`qloo_no_match` with its endpoint, status and type (a 403 there means the key may not use that entity type).
+`/healthz` then shows
 `"mode":"live"`; on its own that shows only that a key is set, not that it works. TODO-CHECK: item 01 lists only
 `rollout-status`, `revision` and `get` as gate verbs (`items/01-prod/PLAN.md:136`), so `exec` and `rollout restart`
 may need host-side kubectl rather than the gate.
