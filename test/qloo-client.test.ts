@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { LogRecord } from "../src/log.ts";
-import { type QlooTransport, QlooError, createLiveTransport, createQloo, PLACE_TYPE } from "../src/qloo/client.ts";
+import { type QlooTransport, QlooError, createLiveTransport, createQloo, fallsBack, PLACE_TYPE } from "../src/qloo/client.ts";
 import { type MockServer, json, queryOf, startMockServer } from "./helpers/mock-server.ts";
 import { SENTINEL_KEY, insightsBodyA, searchBody, tagsBody } from "./helpers/shapes.ts";
 
@@ -178,6 +178,30 @@ describe("cache, cap and fallback", () => {
     expect(e.kind).toBe("quota");
     expect(mock.requests).toHaveLength(1);
     expect(t.callsToday()).toBe(1);
+  });
+
+  it("per-client budget: only that client hits it, retries count, a new day resets it", async () => {
+    let t0 = Date.parse("2026-10-26T10:00:00Z");
+    const t = createLiveTransport({ base: mock.url, key: SENTINEL_KEY, dailyCalls: 100, clientDailyCalls: 2, log: (r) => logs.push(r), now: () => t0 });
+    const q = (s: string) => ({ query: s, types: "urn:entity:artist", take: "1" });
+    await t.get("search", q("a"), "client-a");
+    await t.get("search", q("b"), "client-a");
+    const e = await errorOf(t.get("search", q("c"), "client-a"));
+    expect(e.kind).toBe("quota");
+    expect(e.reason).toBe("client_quota");
+    expect(fallsBack(e)).toBe(true);
+    // A cache hit is free, another client has its own budget, and no client means no budget.
+    await t.get("search", q("a"), "client-a");
+    await t.get("search", q("c"), "client-b");
+    await t.get("search", q("d"));
+    expect(mock.requests).toHaveLength(4);
+    // A 5xx retry spends a second call.
+    mock.setHandler((_req, res) => json(res, 503, {}));
+    await errorOf(t.get("search", q("e"), "client-c"));
+    expect((await errorOf(t.get("search", q("f"), "client-c"))).reason).toBe("client_quota");
+    t0 += 24 * 3600 * 1000;
+    mock.setHandler((_req, res) => json(res, 200, searchBody()));
+    await t.get("search", q("g"), "client-a");
   });
 
   it("daily cap → that reply falls back to demo, labelled", async () => {

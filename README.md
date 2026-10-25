@@ -76,6 +76,7 @@ Every value is optional. Empty counts as unset.
 | `QLOO_API_KEY` | unset = demo mode | The Qloo hackathon key. Never logged, never sent to the page |
 | `QLOO_API_BASE` | `https://hackathon.api.qloo.com` | Qloo base URL; must be https (plain http only for a loopback test server) |
 | `QLOO_DAILY_CALLS` | `3000` | Live Qloo calls a day (cache hits don't count); past it, replies fall back to labelled demo data |
+| `QLOO_CLIENT_DAILY_CALLS` | `300` | Live Qloo calls a day for one client (per IP, IPv6 per /64), so one client can't use up `QLOO_DAILY_CALLS`; past it, that client's replies fall back to labelled demo data |
 
 ## Demo mode and live mode
 

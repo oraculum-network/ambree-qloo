@@ -75,7 +75,7 @@ export async function resolveAll(reply: QlooReply, tastes: Taste[]): Promise<{ s
 }
 
 export async function resolveTastes(args: ResolveTastesInput, deps: ToolDeps): Promise<ToolOutcome<ResolveTastesOutput>> {
-  const reply = deps.qloo.reply();
+  const reply = deps.qloo.reply(deps.client);
   let got: { signals: Signal[]; unresolved: Unresolved[] };
   try {
     got = await resolveAll(reply, args.tastes);

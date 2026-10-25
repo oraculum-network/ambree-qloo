@@ -26,6 +26,7 @@ const EnvSchema = z.object({
   QLOO_API_KEY: z.string().max(512).optional(),
   QLOO_API_BASE: httpUrl.default(QLOO_HACKATHON_BASE),
   QLOO_DAILY_CALLS: num(0, 1_000_000).pipe(z.int()).default(3000),
+  QLOO_CLIENT_DAILY_CALLS: num(0, 1_000_000).pipe(z.int()).default(300),
 });
 
 /** Every environment key the app reads (the README's env table lists each one). */
@@ -45,6 +46,8 @@ export interface Config {
   mode: Mode;
   qlooBase: string;
   qlooDailyCalls: number;
+  /** Live Qloo calls a day for one client (rate-limit key), so one client can't use up qlooDailyCalls. */
+  qlooClientDailyCalls: number;
   /** Non-enumerable: read it, but it never shows up when the config is printed. */
   readonly qlooKey: string | undefined;
 }
@@ -104,6 +107,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     mode: (e.QLOO_API_KEY ? "live" : "demo") as Mode,
     qlooBase: qlooBaseOf(e.QLOO_API_BASE),
     qlooDailyCalls: e.QLOO_DAILY_CALLS,
+    qlooClientDailyCalls: e.QLOO_CLIENT_DAILY_CALLS,
   };
   Object.defineProperty(config, "qlooKey", { value: e.QLOO_API_KEY, enumerable: false, writable: false });
   return config as Config;

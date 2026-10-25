@@ -39,9 +39,9 @@ export class QlooError extends Error {
 
 export type Params = Record<string, string>;
 
-/** Answers a GET to a Qloo endpoint with the parsed JSON body. */
+/** Answers a GET to a Qloo endpoint with the parsed JSON body. `client` is the caller's rate-limit key. */
 export interface QlooTransport {
-  get(endpoint: Endpoint, params: Params): Promise<{ body: unknown; cached: boolean }>;
+  get(endpoint: Endpoint, params: Params, client?: string): Promise<{ body: unknown; cached: boolean }>;
 }
 
 export const PLACE_TYPE = "urn:entity:place";
@@ -93,6 +93,8 @@ export interface LiveTransportOptions {
   base: string;
   key: string;
   dailyCalls: number;
+  /** Live requests a day for one client; unset = no per-client budget. */
+  clientDailyCalls?: number;
   log: Logger;
   now?: () => number;
   fetch?: FetchLike;
@@ -109,11 +111,16 @@ function redact(text: string, key: string): string {
   return key ? text.split(key).join("[redacted]") : text;
 }
 
+/** Clients tracked for the per-client budget; past this, the oldest is forgotten first. */
+export const MAX_CLIENTS = 10_000;
+
 export function createLiveTransport(opts: LiveTransportOptions): LiveTransport {
   const now = opts.now ?? Date.now;
   const cache = opts.cache ?? createTtlCache<unknown>({ now });
   let day = "";
   let count = 0;
+  // Live requests today per client key (in memory only, never logged).
+  const perClient = new Map<string, number>();
   const today = () => new Date(now()).toISOString().slice(0, 10);
 
   async function once(url: string): Promise<{ status: number; text: string }> {
@@ -124,7 +131,7 @@ export function createLiveTransport(opts: LiveTransportOptions): LiveTransport {
 
   return {
     callsToday: () => (day === today() ? count : 0),
-    async get(endpoint, params) {
+    async get(endpoint, params, client) {
       const path = ENDPOINT_PATHS[endpoint];
       const key = cacheKey(path, params);
       const hit = cache.get(key);
@@ -133,13 +140,27 @@ export function createLiveTransport(opts: LiveTransportOptions): LiveTransport {
       if (day !== today()) {
         day = today();
         count = 0;
+        perClient.clear();
       }
       if (count >= opts.dailyCalls) throw new QlooError("quota", 0, "quota", "The daily Qloo call budget is used up");
+      const cap = opts.clientDailyCalls;
+      const who = cap !== undefined ? client : undefined;
+      if (who !== undefined && (perClient.get(who) ?? 0) >= cap!) {
+        throw new QlooError("quota", 0, "client_quota", "This client's daily Qloo call budget is used up");
+      }
+      const spend = () => {
+        count++;
+        if (who === undefined) return;
+        const n = (perClient.get(who) ?? 0) + 1;
+        perClient.delete(who); // re-insert to mark as most recently used
+        perClient.set(who, n);
+        while (perClient.size > MAX_CLIENTS) perClient.delete(perClient.keys().next().value as string);
+      };
 
       const url = `${opts.base}${path}?${new URLSearchParams(params).toString()}`;
       let res: { status: number; text: string } | undefined;
       for (let attempt = 0; attempt < 2; attempt++) {
-        count++;
+        spend();
         try {
           res = await once(url);
         } catch (e) {
@@ -191,10 +212,11 @@ export interface QlooReply {
 export interface Qloo {
   /** "live" when a key is configured; a single reply may still fall back to demo. */
   readonly mode: Mode;
-  reply(): QlooReply;
+  /** One tool reply. `client` (the caller's rate-limit key) counts its live calls against a per-client budget. */
+  reply(client?: string): QlooReply;
 }
 
-/** 401/403 (a dead or wrong key) and the daily cap fall back to demo data; other errors don't. */
+/** 401/403 (a dead or wrong key) and the daily caps fall back to demo data; other errors don't. */
 export function fallsBack(e: unknown): e is QlooError {
   return e instanceof QlooError && (e.kind === "quota" || (e.kind === "http" && (e.status === 401 || e.status === 403)));
 }
@@ -205,7 +227,7 @@ export function createQloo(opts: { live?: QlooTransport; demo: QlooTransport; lo
   const { live, demo, log } = opts;
   return {
     mode: live ? "live" : "demo",
-    reply() {
+    reply(client) {
       let current: QlooTransport = live ?? demo;
       let mode: Mode = live ? "live" : "demo";
       let notice: Notice | undefined;
@@ -217,14 +239,15 @@ export function createQloo(opts: { live?: QlooTransport; demo: QlooTransport; lo
         // The transport this call used: parallel calls in one reply may each fall back.
         const used = current;
         try {
-          got = await used.get(endpoint, params);
+          got = await used.get(endpoint, params, client);
         } catch (e) {
           if (used !== live || !fallsBack(e)) {
             calls.push({ endpoint: ENDPOINT_PATHS[endpoint], ms: Math.round(performance.now() - started), cached: false });
             throw e;
           }
           // A 403 can also mean an unsupported entity type (a code bug), so the line keeps it visible.
-          log({ level: "warn", event: "qloo_fallback", qloo_fallback: e.kind === "quota" ? "quota" : e.status, endpoint: ENDPOINT_PATHS[endpoint] });
+          // "quota" is the whole app's daily cap, "client_quota" one client's.
+          log({ level: "warn", event: "qloo_fallback", qloo_fallback: e.kind === "quota" ? e.reason : e.status, endpoint: ENDPOINT_PATHS[endpoint] });
           current = demo;
           mode = "demo";
           notice = "live_unavailable";
@@ -259,7 +282,16 @@ export function createQloo(opts: { live?: QlooTransport; demo: QlooTransport; lo
 export function qlooFromConfig(config: Config, demo: QlooTransport, log: Logger, extra: { fetch?: FetchLike; now?: () => number; timeoutMs?: number } = {}): Qloo {
   const key = config.qlooKey;
   const live = key
-    ? createLiveTransport({ base: config.qlooBase, key, dailyCalls: config.qlooDailyCalls, log, now: extra.now, fetch: extra.fetch, timeoutMs: extra.timeoutMs })
+    ? createLiveTransport({
+        base: config.qlooBase,
+        key,
+        dailyCalls: config.qlooDailyCalls,
+        clientDailyCalls: config.qlooClientDailyCalls,
+        log,
+        now: extra.now,
+        fetch: extra.fetch,
+        timeoutMs: extra.timeoutMs,
+      })
     : undefined;
   return createQloo({ live, demo, log });
 }

@@ -37,8 +37,11 @@ spec:
               value: https://qloo.ambree.ai
             - name: TRUST_PROXY_HOPS
               value: "1"
+            # Set QLOO_DAILY_CALLS to Qloo's real quota once it is published.
             - name: QLOO_DAILY_CALLS
               value: "3000"
+            - name: QLOO_CLIENT_DAILY_CALLS
+              value: "300"
             # The parked seam: no Secret (or no key in it) means demo mode, so the pod still boots.
             - name: QLOO_API_KEY
               valueFrom:

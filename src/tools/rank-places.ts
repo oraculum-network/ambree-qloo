@@ -118,7 +118,7 @@ export async function rankPlaces(args: RankPlacesInput, deps: ToolDeps): Promise
   if (args.kind === "destination" && !entities.length) {
     return fail("Ranking destinations needs entity_ids from resolve_tastes, such as an artist or a film.");
   }
-  const reply = deps.qloo.reply();
+  const reply = deps.qloo.reply(deps.client);
   const names: SignalNames = new Map();
   try {
     let filterTags: string[] = [];

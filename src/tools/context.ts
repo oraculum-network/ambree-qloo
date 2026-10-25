@@ -9,6 +9,8 @@ import { capSpeech } from "./speech.ts";
 export interface ToolDeps {
   qloo: Qloo;
   log: Logger;
+  /** The caller's rate-limit key, for the per-client live Qloo budget (never logged). */
+  client?: string;
 }
 
 export type ToolOutcome<T> = { ok: true; value: T } | { ok: false; message: string };

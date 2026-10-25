@@ -104,11 +104,13 @@ export function createApp(opts: AppOptions): App {
     }
 
     if (isMcp) {
-      const d = mcpLimit.take(identity.key(req));
+      const client = identity.key(req);
+      const d = mcpLimit.take(client);
       if (!d.ok) return sendJsonRpcError(res, 429, -32000, "Too many requests", { "Retry-After": String(d.retryAfterSec) });
       const info = { tools: [] as string[] };
       meta.tools = info.tools;
-      return handleMcp(req, res, deps, info);
+      // The same key also meters this client's live Qloo calls (QLOO_CLIENT_DAILY_CALLS).
+      return handleMcp(req, res, { ...deps, client }, info);
     }
     if (rawPath.startsWith("/api/")) return sendJson(res, 404, { error: "not_found" });
     return staticRoute(req, res, rawPath, meta);

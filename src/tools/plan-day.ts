@@ -89,7 +89,7 @@ const SLOT_SPOKEN: Record<Slot, (name: string) => string> = {
 };
 
 export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolOutcome<PlanDayOutput>> {
-  const reply = deps.qloo.reply();
+  const reply = deps.qloo.reply(deps.client);
   let signals: Signal[];
   let unresolved: Unresolved[];
   let day: Stop[] = [];
