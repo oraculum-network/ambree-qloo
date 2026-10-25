@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# A fake kubectl for deploy/store-key.sh tests. It records each call's argv (one line per
+# call) in $FAKE_LOG, the dry-run create's stdin in $FAKE_DIR/stdin-create and the patch's
+# stdin in $FAKE_DIR/stdin-patch, and answers the calls the script makes. Pipeline stages
+# run at the same time, so their log lines may come in either order.
+# FAKE_SECRET_EXISTS=1 makes `get secret` succeed.
+
+set -euo pipefail
+
+printf '%s\n' "$*" >>"$FAKE_LOG"
+
+case " $* " in
+  *" get secret "*)
+    [ "${FAKE_SECRET_EXISTS:-0}" = "1" ] && echo "secret/qloo-api" && exit 0
+    exit 1
+    ;;
+  *" --from-file="*"/dev/stdin"*)
+    cat >"$FAKE_DIR/stdin-create"
+    b64=$(base64 <"$FAKE_DIR/stdin-create" | tr -d '\n')
+    printf '{"apiVersion":"v1","kind":"Secret","metadata":{"name":"qloo-api","namespace":"qloo"},"data":{"QLOO_API_KEY":"%s"}}\n' "$b64"
+    ;;
+  *" patch "*)
+    cat >"$FAKE_DIR/stdin-patch"
+    echo "secret/qloo-api patched"
+    ;;
+  *)
+    exit 0
+    ;;
+esac

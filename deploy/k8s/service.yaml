@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: qloo-web
+spec:
+  selector:
+    app: qloo-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

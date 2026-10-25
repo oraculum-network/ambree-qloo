@@ -1,0 +1,15 @@
+# qloo.ambree.ai on oraculum-prod (k3s). Rendered with `kubectl kustomize deploy/k8s`.
+# The namespace, its PSA labels, NetworkPolicies, quota and the qloo-low PriorityClass come
+# from the host's security setup (DEPLOY.md step 1), not from here. So does the Secret
+# qloo-api, which deploy/store-key.sh creates; until it exists the app runs in demo mode.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: qloo
+labels:
+  - pairs:
+      app.kubernetes.io/name: ambree-qloo
+      app.kubernetes.io/part-of: ambree
+resources:
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml

@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qloo-web
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: qloo-web
+  template:
+    metadata:
+      labels:
+        app: qloo-web
+    spec:
+      priorityClassName: qloo-low
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          # Built and imported on the host (DEPLOY.md step 3); the tag is the 7-char commit sha.
+          image: ambree-qloo:CHANGEME-sha7
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: PUBLIC_ORIGIN
+              value: https://qloo.ambree.ai
+            - name: TRUST_PROXY_HOPS
+              value: "1"
+            - name: QLOO_DAILY_CALLS
+              value: "3000"
+            # The parked seam: no Secret (or no key in it) means demo mode, so the pod still boots.
+            - name: QLOO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: qloo-api
+                  key: QLOO_API_KEY
+                  optional: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 192Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30

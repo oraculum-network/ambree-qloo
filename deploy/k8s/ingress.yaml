@@ -1,0 +1,22 @@
+# Traefik (k3s) routes qloo.ambree.ai to the Service. TODO-CHECK at unpark: copy the
+# entrypoint annotation and the TLS stanza from alexa.ambree.ai's Ingress (DEPLOY.md step 1),
+# which this repo could not read when it was written.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qloo-web
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: qloo.ambree.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qloo-web
+                port:
+                  name: http
