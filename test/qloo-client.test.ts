@@ -215,6 +215,15 @@ describe("cache, cap and fallback", () => {
     expect(q.reply().mode).toBe("live");
   });
 
+  it("parallel calls that all get 403 each fall back", async () => {
+    mock.setHandler((_req, res) => json(res, 403, { code: 403, reason: "Forbidden" }));
+    const r = liveQloo().reply();
+    const out = await Promise.all([1, 2, 3].map((n) => r.insights({ type: PLACE_TYPE, entities: [`e${n}`], take: 3 })));
+    expect(out).toHaveLength(3);
+    expect(r.mode).toBe("demo");
+    expect(mock.requests).toHaveLength(3);
+  });
+
   it("429 and 5xx do not fall back: they are errors", async () => {
     mock.setHandler((_req, res) => json(res, 429, {}));
     const r = liveQloo().reply();

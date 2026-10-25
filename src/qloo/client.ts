@@ -208,10 +208,12 @@ export function createQloo(opts: { live?: QlooTransport; demo: QlooTransport; lo
       async function call<E extends Endpoint>(endpoint: E, params: Params) {
         const started = performance.now();
         let got: { body: unknown; cached: boolean };
+        // The transport this call used: parallel calls in one reply may each fall back.
+        const used = current;
         try {
-          got = await current.get(endpoint, params);
+          got = await used.get(endpoint, params);
         } catch (e) {
-          if (current !== live || !fallsBack(e)) {
+          if (used !== live || !fallsBack(e)) {
             calls.push({ endpoint: ENDPOINT_PATHS[endpoint], ms: Math.round(performance.now() - started), cached: false });
             throw e;
           }
@@ -220,7 +222,7 @@ export function createQloo(opts: { live?: QlooTransport; demo: QlooTransport; lo
           current = demo;
           mode = "demo";
           notice = "live_unavailable";
-          got = await current.get(endpoint, params);
+          got = await demo.get(endpoint, params);
         }
         calls.push({ endpoint: ENDPOINT_PATHS[endpoint], ms: Math.round(performance.now() - started), cached: got.cached });
         const parsed = PARSERS[endpoint].safeParse(got.body);
