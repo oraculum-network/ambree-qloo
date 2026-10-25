@@ -14,8 +14,10 @@ export type Slot = (typeof SLOTS)[number];
 const RELAXED: Slot[] = ["morning", "lunch", "evening"];
 export const PLAN_TAKE = 30;
 
+// LUNCH matches inside words on purpose ("Seafood", "Street food", "Cafeteria"). EVENING's
+// "bar" is a whole word, so "Barbecue" and "Barachois" are not evening venues.
 const LUNCH = /restaurant|cafe|café|food/i;
-const EVENING = /bar|restaurant|music/i;
+const EVENING = /\bbars?\b|restaurant|music/i;
 
 export const planDayInput = z.object({
   tastes: tastesInput,

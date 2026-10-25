@@ -55,17 +55,23 @@ git -C /Users/haidar.deenmahomed/trp/ambree-qloo bundle create /tmp/ambree-qloo.
 Copy the bundle to the host and build there the way `deploy.sh` builds alexa (TODO-CHECK the exact build and
 `k3s ctr images import` commands in deploy.sh's alexa path). The image name is `ambree-qloo:<sha7>`.
 
-## 4. Apply
+## 4. Set the image tag, then apply
+
+On the host, in the checkout the image was built from. The tag is that commit's 7-char sha; `kustomization.yaml`
+ships with `newTag: CHANGEME-sha7`, which would fail with `ErrImageNeverPull`:
 
 ```bash
+sed -i "s/newTag: CHANGEME-sha7/newTag: $(git rev-parse --short=7 HEAD)/" deploy/k8s/kustomization.yaml
+kubectl kustomize deploy/k8s | grep 'image:'
 kubectl apply -k deploy/k8s
 ```
 
-After the CTO has set the image tag. With no Secret yet, the site serves demo mode.
+The `grep` must print `image: ambree-qloo:<that sha>`. TODO-CHECK whether alexa's `deploy.sh` entry already does this
+substitution (step 1.4); if so, use it instead. With no Secret yet, the site serves demo mode.
 
 ## 5. Store the key (when the CEO's Qloo email arrives)
 
-On the host, from the repo checkout:
+On the host, from the repo checkout. `store-key.sh` needs `jq` (TODO-CHECK `command -v jq` on the host first):
 
 ```bash
 bash deploy/store-key.sh

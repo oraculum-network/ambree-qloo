@@ -24,6 +24,9 @@ describe("manifests", () => {
 
   it("imagePullPolicy Never", () => {
     expect(deployment).toMatch(/image: ambree-qloo:CHANGEME-sha7\n\s+imagePullPolicy: Never/);
+    // The tag is set in one place, the kustomization, by DEPLOY.md step 4's sed.
+    expect(read("deploy/k8s/kustomization.yaml")).toMatch(/images:\n\s+- name: ambree-qloo\n\s+newTag: CHANGEME-sha7\n/);
+    expect(read("DEPLOY.md")).toContain('sed -i "s/newTag: CHANGEME-sha7/newTag: $(git rev-parse --short=7 HEAD)/" deploy/k8s/kustomization.yaml');
   });
 
   it("readOnlyRootFilesystem", () => {

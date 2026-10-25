@@ -280,6 +280,24 @@ describe("plan_day", () => {
     expect(out.day.map((s) => s.place)).toEqual(["Sight 0", "Sight 1", "Sight 2", "Sight 3"]);
   });
 
+  it("'bar' must be a whole word for the evening: Barachois is a morning sight", async () => {
+    mock = await startQlooMock({
+      places: [
+        { name: "Lagoon Walk", town: "Mahébourg", country: "MU", tags: ["Barachois"], affinity: 0.95 },
+        { name: "Grill", town: "Mahébourg", country: "MU", tags: ["Barbecue Restaurant"], affinity: 0.9 },
+        { name: "Garden", town: "Mahébourg", country: "MU", tags: ["Garden"], affinity: 0.85 },
+        { name: "Wine Bar", town: "Mahébourg", country: "MU", tags: ["Wine Bars"], affinity: 0.8 },
+      ],
+    });
+    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
+    expect(out.day.map((s) => [s.slot, s.place])).toEqual([
+      ["morning", "Lagoon Walk"],
+      ["lunch", "Grill"],
+      ["afternoon", "Garden"],
+      ["evening", "Wine Bar"],
+    ]);
+  });
+
   it("a stop with no country code from Qloo keeps location_unverified", async () => {
     mock = await startQlooMock({ places: [{ name: "Sure", country: "MU", tags: ["Museum"], affinity: 0.9 }, { name: "Unsure", tags: ["Museum"], affinity: 0.8 }] });
     const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));

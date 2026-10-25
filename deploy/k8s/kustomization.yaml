@@ -13,3 +13,8 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
+# The image is built and imported on the host. Its tag (the 7-char commit sha) replaces
+# CHANGEME-sha7 here before applying: DEPLOY.md step 4.
+images:
+  - name: ambree-qloo
+    newTag: CHANGEME-sha7
