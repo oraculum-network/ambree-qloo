@@ -62,7 +62,7 @@ export interface Ranked {
   dropped_non_mu: number;
 }
 
-function toRanked(e: InsightsEntity, names: SignalNames, signalTags: Set<string>): RankedPlace {
+export function toRanked(e: InsightsEntity, names: SignalNames, signalTags: Set<string>): RankedPlace {
   const why: string[] = [];
   for (const x of explainedBy(e)) {
     const n = names.get(x.id);
@@ -85,8 +85,8 @@ function toRanked(e: InsightsEntity, names: SignalNames, signalTags: Set<string>
   };
 }
 
-/** One insights call in Mauritius, the MU guard, then results by affinity. */
-export async function rankIn(reply: QlooReply, params: Omit<InsightsParams, keyof CountryFilter>, names: SignalNames): Promise<Ranked> {
+/** One insights call in Mauritius and the MU guard: the kept entities in Qloo's order. */
+export async function fetchInMU(reply: QlooReply, params: Omit<InsightsParams, keyof CountryFilter>): Promise<{ entities: InsightsEntity[]; dropped_non_mu: number }> {
   let entities: InsightsEntity[];
   try {
     ({ entities } = (await reply.insights({ ...params, ...MU_FILTER })).results);
@@ -104,9 +104,15 @@ export async function rankIn(reply: QlooReply, params: Omit<InsightsParams, keyo
     }
     return true;
   });
+  return { entities: kept, dropped_non_mu: dropped };
+}
+
+/** One insights call in Mauritius, the MU guard, then results by affinity. */
+export async function rankIn(reply: QlooReply, params: Omit<InsightsParams, keyof CountryFilter>, names: SignalNames): Promise<Ranked> {
+  const { entities, dropped_non_mu } = await fetchInMU(reply, params);
   const signalTags = new Set(params.tags ?? []);
-  const places = kept.map((e) => toRanked(e, names, signalTags)).sort((a, b) => b.affinity - a.affinity);
-  return { places, dropped_non_mu: dropped };
+  const places = entities.map((e) => toRanked(e, names, signalTags)).sort((a, b) => b.affinity - a.affinity);
+  return { places, dropped_non_mu };
 }
 
 export async function rankPlaces(args: RankPlacesInput, deps: ToolDeps): Promise<ToolOutcome<RankPlacesOutput>> {

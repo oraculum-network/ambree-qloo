@@ -112,8 +112,9 @@ it to `MU_BY_LOCATION` (`filter.location.query=Mauritius`), run `npm test`, then
 ## Data policy
 
 - **No Qloo response data in this repo.** The fixtures are invented: every name ends "(demo)", every ID is in the
-  all-zero range `00000000-0000-4000-8000-…`, and tags use a made-up `urn:tag:demo:` namespace. A test checks that no
-  example from Qloo's docs appears in them.
+  all-zero range `00000000-0000-4000-8000-…`, and every tag name ends "(demo)". Tags carry Qloo's public taxonomy
+  IDs (such as `urn:tag:category:place:beach`) so demo runs the same classification code as live. A test checks that
+  no example from Qloo's docs appears in them.
 - Live responses are cached **in process memory only** (6 hours, 500 entries) and never written to disk.
 - Logs record route, status, timings, mode and tool names; never what people type, replies, IPs or the key.
 - Qloo results describe aggregate affinities; they are not evidence of a person's identity, preferences or future

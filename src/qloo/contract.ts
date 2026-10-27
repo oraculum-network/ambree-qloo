@@ -19,6 +19,9 @@ const Properties = z.looseObject({
   address: z.string().nullish(),
   // One recipe puts the score here instead of query.affinity.
   affinity: z.number().nullish(),
+  // Live places send { id: "urn:tag:genre:place:..." }; read by src/tools/places.ts, never required.
+  primary_genre: z.unknown().optional(),
+  live_music: z.unknown().optional(),
 });
 
 export const SearchEntity = z.looseObject({
@@ -70,6 +73,8 @@ export const InsightsEntity = z.looseObject({
   subtype: z.string().nullish(),
   popularity: z.number().nullish(),
   properties: Properties.nullish(),
+  // Live places send { lat, lon, geohash }; read by pointOf, never required.
+  location: z.unknown().optional(),
   tags: z.array(EntityTag).nullish(),
   query: z
     .looseObject({
@@ -110,6 +115,14 @@ export function affinityOf(e: InsightsEntity): number {
 /** The town of a place: geocode.city, else geocode.name; undefined if both are missing, null or empty. */
 export function townOf(e: InsightsEntity): string | undefined {
   return e.properties?.geocode?.city || e.properties?.geocode?.name || undefined;
+}
+
+/** A place's coordinates from `location.lat` and `location.lon`; undefined unless both are finite numbers. */
+export function pointOf(e: InsightsEntity): { lat: number; lon: number } | undefined {
+  const loc = e.location as { lat?: unknown; lon?: unknown } | null | undefined;
+  const lat = loc?.lat;
+  const lon = loc?.lon;
+  return typeof lat === "number" && typeof lon === "number" && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : undefined;
 }
 
 /**

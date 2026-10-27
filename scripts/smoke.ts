@@ -118,6 +118,8 @@ const OPTIONAL_PLACE_FIELDS: Array<[string, (e: Record<string, unknown>) => unkn
   ["properties.geocode.name", (e) => (e.properties as { geocode?: { name?: unknown } })?.geocode?.name],
   ["properties.geocode.country_code", (e) => (e.properties as { geocode?: { country_code?: unknown } })?.geocode?.country_code],
   ["properties.address", (e) => (e.properties as { address?: unknown })?.address],
+  // plan_day classifies places by it (src/tools/places.ts).
+  ["properties.primary_genre", (e) => (e.properties as { primary_genre?: unknown })?.primary_genre],
   ["properties.business_rating", (e) => (e.properties as { business_rating?: unknown })?.business_rating],
   ["properties.price_level", (e) => (e.properties as { price_level?: unknown })?.price_level],
   ["location", (e) => e.location],

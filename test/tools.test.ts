@@ -11,7 +11,8 @@ import { MU_BY_COUNTRY, MU_BY_LOCATION, MU_FILTER, rankIn, rankPlaces, rankPlace
 import { resolveTastes, resolveTastesInput } from "../src/tools/resolve-tastes.ts";
 import { sentences } from "../src/tools/speech.ts";
 import type { ServerResponse } from "node:http";
-import { demoDeps, liveDeps, qlooHandler, startQlooMock } from "./helpers/deps.ts";
+import { FILTER_TAGS } from "../src/tools/places.ts";
+import { type MockPlace, demoDeps, liveDeps, qlooHandler, startQlooMock } from "./helpers/deps.ts";
 import { type MockServer, type RecordedRequest, json, queryOf, startMockServer } from "./helpers/mock-server.ts";
 import { liveInsightsBody, liveSearchBody, liveTagsBody } from "./helpers/shapes.ts";
 
@@ -29,11 +30,16 @@ function ok<T>(o: ToolOutcome<T>): T {
 const searches = (m: MockServer) => m.requests.filter((r) => r.url.startsWith("/search")).map(queryOf);
 const insightsCalls = (m: MockServer) => m.requests.filter((r) => r.url.startsWith("/v2/insights")).map(queryOf);
 
-const FULL_DAY = [
-  { name: "Morning Spot", town: "Port Louis", country: "MU", tags: ["Museum"], affinity: 0.95 },
-  { name: "Lunch Spot", town: "Port Louis", country: "MU", tags: ["Seafood Restaurant"], affinity: 0.9 },
-  { name: "Afternoon Spot", town: "Grand Baie", country: "MU", tags: ["Beach"], affinity: 0.85 },
-  { name: "Evening Spot", town: "Grand Baie", country: "MU", tags: ["Cocktail Bar"], affinity: 0.8 },
+const SIGHT = { genre: "urn:tag:genre:place:tourist_attraction", tagIds: [FILTER_TAGS.thingsToDo] };
+const RESTAURANT = { genre: "urn:tag:genre:place:restaurant", tagIds: [FILTER_TAGS.restaurant, "urn:tag:category:place:restaurant"] };
+const BAR = { genre: "urn:tag:genre:place:restaurant:bar", tagIds: [FILTER_TAGS.bar] };
+const RESORT = { genre: "urn:tag:genre:place:hotel:resort", tagIds: ["urn:tag:category:place:resort_hotel", FILTER_TAGS.thingsToDo, FILTER_TAGS.restaurant, FILTER_TAGS.bar] };
+
+const FULL_DAY: MockPlace[] = [
+  { name: "Morning Spot", town: "Port Louis", country: "MU", tags: ["Museum"], ...SIGHT, affinity: 0.95 },
+  { name: "Lunch Spot", town: "Port Louis", country: "MU", tags: ["Seafood Restaurant"], ...RESTAURANT, affinity: 0.9 },
+  { name: "Afternoon Spot", town: "Grand Baie", country: "MU", tags: ["Beach"], ...SIGHT, affinity: 0.85 },
+  { name: "Evening Spot", town: "Grand Baie", country: "MU", tags: ["Cocktail Bar"], ...BAR, affinity: 0.8 },
 ];
 
 describe("resolve_tastes", () => {
@@ -131,8 +137,11 @@ describe("resolve_tastes", () => {
   it("demo mode: every taste resolves to a synthetic entity or tag", async () => {
     const out = ok(await resolveTastes(resolveTastesInput.parse({ tastes: [{ kind: "music", name: "Kaya" }, { kind: "food", name: "seafood" }] }), demoDeps()));
     expect(out.mode).toBe("demo");
-    expect(out.signals.map((s) => s.name)).toEqual(["Kaya (demo)", "Seafood restaurant (demo)"]);
-    expect(out.speech).toBe("I matched Kaya and Seafood restaurant on Qloo. This uses demo data, not live Qloo results.");
+    expect(out.signals.map((s) => [s.name, s.id])).toEqual([
+      ["Kaya (demo)", "00000000-0000-4000-8000-0001" + out.signals[0]!.id.slice(-8)],
+      ["Seafood (demo)", "urn:tag:genre:place:restaurant:seafood"],
+    ]);
+    expect(out.speech).toBe("I matched Kaya and Seafood on Qloo. This uses demo data, not live Qloo results.");
   });
 });
 
@@ -221,21 +230,67 @@ describe("rank_places", () => {
 });
 
 describe("plan_day", () => {
-  it("plan_day fills 4 slots from distinct places, ordered", async () => {
+  it("plan_day fills 4 slots from distinct places, ordered: one Insights call per kind of stop", async () => {
     mock = await startQlooMock({ places: [...FULL_DAY].reverse() });
     const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
-    expect(out.day.map((s) => [s.slot, s.place])).toEqual([
-      ["morning", "Morning Spot"],
-      ["lunch", "Lunch Spot"],
-      ["afternoon", "Afternoon Spot"],
-      ["evening", "Evening Spot"],
+    expect(out.day.map((s) => [s.slot, s.kind, s.place])).toEqual([
+      ["morning", "thing_to_do", "Morning Spot"],
+      ["lunch", "restaurant", "Lunch Spot"],
+      ["afternoon", "thing_to_do", "Afternoon Spot"],
+      ["evening", "bar", "Evening Spot"],
     ]);
-    expect(insightsCalls(mock)).toHaveLength(1);
-    expect(insightsCalls(mock)[0]!.take).toBe("30");
+    const calls = insightsCalls(mock);
+    expect(calls.map((q) => q["filter.tags"]).sort()).toEqual(
+      ["urn:tag:category:place:bar", "urn:tag:category:place:tourist_attraction", "urn:tag:genre:place:restaurant"],
+    );
+    expect(calls.every((q) => q.take === "25" && q["filter.geocode.country_code"] === "MU")).toBe(true);
     expect(out.speech).toBe(
       "Start at Morning Spot in Port Louis, have lunch at Lunch Spot, spend the afternoon at Afternoon Spot in Grand Baie and end the evening at Evening Spot.",
     );
-    expect(out.qloo_calls.map((c) => c.endpoint)).toEqual(["/search", "/v2/insights"]);
+    expect(out.qloo_calls.map((c) => c.endpoint)).toEqual(["/search", "/v2/insights", "/v2/insights", "/v2/insights"]);
+  });
+
+  it("a hotel or resort is never a sight; a meal takes one only after every stand-alone place", async () => {
+    // The resort has the best score and every filter tag, as live resorts often do.
+    const places: MockPlace[] = [{ name: "Big Resort", country: "MU", ...RESORT, affinity: 0.99 }, ...FULL_DAY];
+    mock = await startQlooMock({ places });
+    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
+    expect(out.day.map((s) => s.place)).toEqual(["Morning Spot", "Lunch Spot", "Afternoon Spot", "Evening Spot"]);
+    // With no stand-alone restaurant or bar left for the evening, the resort's restaurant is used.
+    mock.setHandler(qlooHandler({ places: [{ name: "Big Resort", country: "MU", ...RESORT, affinity: 0.99 }, ...FULL_DAY.slice(0, 3)] }));
+    const late = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Someone" }] }), liveDeps(mock)));
+    expect(late.day.map((s) => [s.slot, s.kind, s.place])).toEqual([
+      ["morning", "thing_to_do", "Morning Spot"],
+      ["lunch", "restaurant", "Lunch Spot"],
+      ["afternoon", "thing_to_do", "Afternoon Spot"],
+      ["evening", "bar", "Big Resort"],
+    ]);
+  });
+
+  it("lunch prefers a restaurant to a bar Qloo files as a restaurant; the evening prefers the bar", async () => {
+    const barAsRestaurant = { genre: "urn:tag:genre:place:restaurant:bar", tagIds: [FILTER_TAGS.restaurant, FILTER_TAGS.bar] };
+    mock = await startQlooMock({
+      places: [
+        { name: "Sight", country: "MU", ...SIGHT, affinity: 0.9 },
+        { name: "Pub With Food", country: "MU", ...barAsRestaurant, affinity: 0.95 },
+        { name: "Kitchen", country: "MU", ...RESTAURANT, affinity: 0.6 },
+      ],
+    });
+    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }], pace: "relaxed" }), liveDeps(mock)));
+    expect(out.day.map((s) => [s.slot, s.kind, s.place])).toEqual([
+      ["morning", "thing_to_do", "Sight"],
+      ["lunch", "restaurant", "Kitchen"],
+      ["evening", "bar", "Pub With Food"],
+    ]);
+  });
+
+  it("a slot with no place of its kind is left out, never filled with another kind", async () => {
+    mock = await startQlooMock({ places: [0.9, 0.8, 0.7].map((a, i) => ({ name: `Sight ${i}`, country: "MU", ...SIGHT, affinity: a })) });
+    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
+    expect(out.day.map((s) => [s.slot, s.place])).toEqual([
+      ["morning", "Sight 0"],
+      ["afternoon", "Sight 1"],
+    ]);
   });
 
   it("demo: 4 distinct fixture places, ordered by slot", async () => {
@@ -244,7 +299,9 @@ describe("plan_day", () => {
     expect(out.day.map((s) => s.slot)).toEqual(["morning", "lunch", "afternoon", "evening"]);
     expect(new Set(out.day.map((s) => s.place_id)).size).toBe(4);
     expect(out.day.every((s) => s.place.endsWith("(demo)"))).toBe(true);
-    expect(out.day[1]!.tags.join(" ")).toMatch(/restaurant|cafe|food/i);
+    expect(out.day.map((s) => s.kind)).toEqual(["thing_to_do", "restaurant", "thing_to_do", expect.stringMatching(/^(bar|restaurant)$/)]);
+    // The fixtures' hotels never appear as a sight.
+    expect(out.day.filter((s) => s.kind === "thing_to_do").map((s) => s.place).join()).not.toMatch(/Resort|Hotel/);
   });
 
   it("relaxed = 3 stops", async () => {
@@ -264,44 +321,8 @@ describe("plan_day", () => {
     expect(demo.day.every((s) => s.why === "Because you like Kaya.")).toBe(true);
   });
 
-  it("ties prefer the previous stop's town", async () => {
-    mock = await startQlooMock({
-      places: [
-        { name: "Start", town: "Chamarel", country: "MU", tags: ["Viewpoint"], affinity: 0.9 },
-        { name: "Far Lunch", town: "Port Louis", country: "MU", tags: ["Cafe"], affinity: 0.801 },
-        { name: "Near Lunch", town: "Chamarel", country: "MU", tags: ["Cafe"], affinity: 0.799 },
-      ],
-    });
-    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
-    expect(out.day.map((s) => s.place)).toEqual(["Start", "Near Lunch", "Far Lunch"]);
-  });
-
-  it("an empty slot takes the next best place", async () => {
-    mock = await startQlooMock({ places: [0.9, 0.8, 0.7, 0.6].map((a, i) => ({ name: `Sight ${i}`, country: "MU", tags: ["Museum"], affinity: a })) });
-    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
-    expect(out.day.map((s) => s.place)).toEqual(["Sight 0", "Sight 1", "Sight 2", "Sight 3"]);
-  });
-
-  it("'bar' must be a whole word for the evening: Barachois is a morning sight", async () => {
-    mock = await startQlooMock({
-      places: [
-        { name: "Lagoon Walk", town: "Mahébourg", country: "MU", tags: ["Barachois"], affinity: 0.95 },
-        { name: "Grill", town: "Mahébourg", country: "MU", tags: ["Barbecue Restaurant"], affinity: 0.9 },
-        { name: "Garden", town: "Mahébourg", country: "MU", tags: ["Garden"], affinity: 0.85 },
-        { name: "Wine Bar", town: "Mahébourg", country: "MU", tags: ["Wine Bars"], affinity: 0.8 },
-      ],
-    });
-    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
-    expect(out.day.map((s) => [s.slot, s.place])).toEqual([
-      ["morning", "Lagoon Walk"],
-      ["lunch", "Grill"],
-      ["afternoon", "Garden"],
-      ["evening", "Wine Bar"],
-    ]);
-  });
-
   it("a stop with no country code from Qloo keeps location_unverified", async () => {
-    mock = await startQlooMock({ places: [{ name: "Sure", country: "MU", tags: ["Museum"], affinity: 0.9 }, { name: "Unsure", tags: ["Museum"], affinity: 0.8 }] });
+    mock = await startQlooMock({ places: [{ name: "Sure", country: "MU", ...SIGHT, affinity: 0.9 }, { name: "Unsure", ...SIGHT, affinity: 0.8 }] });
     const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
     expect(out.day.map((s) => [s.place, s.location_unverified])).toEqual([
       ["Sure", undefined],
@@ -384,16 +405,17 @@ describe("live shapes (27 Oct 2026, synthetic values)", () => {
     expect(logs.some((l) => l.event === "qloo_shape_mismatch")).toBe(false);
     expect(out).toMatchObject({ mode: "live", unresolved: [] });
     expect(out.notice).toBeUndefined();
-    expect(out.day.map((s) => [s.slot, s.place, s.town])).toEqual([
-      ["morning", "Live Shape Place 0 (demo)", "Port Louis"],
-      ["lunch", "Live Shape Place 1 (demo)", undefined],
-      ["afternoon", "Live Shape Place 2 (demo)", undefined],
-      ["evening", "Live Shape Place 3 (demo)", undefined],
+    // The mock sends the same 5 places to every call; the resort (place 4) is never used.
+    expect(out.day.map((s) => [s.slot, s.kind, s.place, s.town])).toEqual([
+      ["morning", "thing_to_do", "Live Shape Place 0 (demo)", "Port Louis"],
+      ["lunch", "restaurant", "Live Shape Place 1 (demo)", undefined],
+      ["afternoon", "thing_to_do", "Live Shape Place 2 (demo)", undefined],
+      ["evening", "bar", "Live Shape Place 3 (demo)", undefined],
     ]);
     for (const s of out.day) {
       expect(s.affinity).toBe(0);
       expect(s.location_unverified).toBeUndefined();
-      expect(s.tags).toEqual(["Test tag 0 (demo)"]);
+      expect(s.tags).toContain("Test tag 0 (demo)");
       expect(s.why).toBe("Because you like seafood.");
     }
     expect(out.day[1]).not.toHaveProperty("town");
@@ -422,7 +444,7 @@ describe("live shapes (27 Oct 2026, synthetic values)", () => {
       ["Live Shape Place 1 (demo)", undefined, true],
       ["Live Shape Place 2 (demo)", undefined, true],
     ]);
-    expect(out.places[0]!.tags).toEqual(["Test tag 0 (demo)"]);
+    expect(out.places[0]!.tags).toEqual(["Test tag 0 (demo)", "Tourist attraction (demo)"]);
     expect(out.dropped_non_mu).toBe(1);
     expect(out.speech).toBe("Qloo's top places for you are Live Shape Place 0 in Port Louis, Live Shape Place 1 and Live Shape Place 2.");
     expect(JSON.stringify(out)).not.toContain("null");

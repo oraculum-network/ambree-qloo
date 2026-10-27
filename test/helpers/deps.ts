@@ -23,10 +23,22 @@ export interface MockPlace {
   name: string;
   town?: string;
   country?: string;
+  /** Tag names, sent with made-up urn:tag:test: IDs. */
   tags?: string[];
+  /** Qloo taxonomy tag IDs, sent with a name made from the last part ("...:street_food" → "Street food"). */
+  tagIds?: string[];
+  /** properties.primary_genre.id */
+  genre?: string;
+  lat?: number;
+  lon?: number;
   affinity: number;
   explain?: Array<{ entity_id?: string; tag_id?: string; score: number }>;
 }
+
+const nameOfTag = (tagId: string) => {
+  const last = tagId.split(":").pop()!.replace(/_/g, " ");
+  return last.charAt(0).toUpperCase() + last.slice(1);
+};
 
 /** An insights entity in the documented shape A, from a short spec. */
 export function mockEntity(p: MockPlace, i: number) {
@@ -35,10 +47,42 @@ export function mockEntity(p: MockPlace, i: number) {
     entity_id: id(700 + i),
     type: "urn:entity",
     subtype: "urn:entity:place",
-    properties: { geocode: { ...(p.town ? { name: p.town } : {}), ...(p.country ? { country_code: p.country } : {}) } },
-    tags: (p.tags ?? []).map((t) => ({ id: `urn:tag:test:${t.toLowerCase().replace(/\W+/g, "_")}`, name: t, type: "urn:tag:test" })),
+    properties: {
+      geocode: { ...(p.town ? { name: p.town } : {}), ...(p.country ? { country_code: p.country } : {}) },
+      ...(p.genre ? { primary_genre: { id: p.genre } } : {}),
+    },
+    ...(p.lat !== undefined && p.lon !== undefined ? { location: { lat: p.lat, lon: p.lon } } : {}),
+    tags: [
+      ...(p.tags ?? []).map((t) => ({ id: `urn:tag:test:${t.toLowerCase().replace(/\W+/g, "_")}`, name: t, type: "urn:tag:test" })),
+      ...(p.tagIds ?? []).map((t) => ({ id: t, name: nameOfTag(t), type: t.split(":").slice(0, -1).join(":") })),
+    ],
     query: { affinity: p.affinity, ...(p.explain ? { explainability: { "signal.interests.entities": p.explain } } : {}) },
   };
+}
+
+/** Kilometres between two points (haversine), for the mock's radius filter. */
+function km(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const rad = Math.PI / 180;
+  const h = Math.sin(((b.lat - a.lat) * rad) / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(((b.lon - a.lon) * rad) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
+/** The script's places that pass filter.tags (any listed tag) and filter.location + radius, as Qloo applies them. */
+export function mockInsights(places: MockPlace[], q: Record<string, string>) {
+  const filterTags = (q["filter.tags"] ?? "").split(",").filter(Boolean);
+  const point = /^POINT\((-?[\d.]+) (-?[\d.]+)\)$/.exec(q["filter.location"] ?? "");
+  const radius = Number(q["filter.location.radius"] ?? "0");
+  return places
+    .map((p, i) => ({ p, e: mockEntity(p, i) }))
+    .filter(({ p, e }) => {
+      if (filterTags.length && !e.tags.some((t) => filterTags.includes(t.id))) return false;
+      if (point && radius) {
+        if (p.lat === undefined || p.lon === undefined) return false;
+        if (km({ lat: Number(point[2]), lon: Number(point[1]) }, { lat: p.lat, lon: p.lon }) * 1000 > radius) return false;
+      }
+      return true;
+    })
+    .map(({ e }) => e);
 }
 
 export interface QlooScript {
@@ -68,7 +112,7 @@ export function qlooHandler(script: QlooScript) {
     }
     if (path === "/v2/insights") {
       if (script.insightsStatus && script.insightsStatus !== 200) return json(res, script.insightsStatus, { code: script.insightsStatus, reason: "Error" });
-      return json(res, 200, { success: true, results: { entities: (script.places ?? []).map(mockEntity) } });
+      return json(res, 200, { success: true, results: { entities: mockInsights(script.places ?? [], q) } });
     }
     json(res, 404, {});
   };

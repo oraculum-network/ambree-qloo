@@ -25,7 +25,7 @@ describe("demo fixtures", () => {
       ["tags", tagsParams("nothing-like-this")],
       ["insights", insightsParams({ type: "urn:entity:place", entities: [syntheticId("a")], countryCode: "MU", take: 10 })],
       ["insights", insightsParams({ type: "urn:entity:destination", entities: [syntheticId("b")], countryCode: "MU", take: 10 })],
-      ["insights", insightsParams({ type: "urn:entity:place", tags: ["urn:tag:demo:place:beach"], town: "Grand Baie", take: 3 })],
+      ["insights", insightsParams({ type: "urn:entity:place", tags: ["urn:tag:category:place:beach"], town: "Grand Baie", take: 3 })],
     ] as const;
     for (const [endpoint, params] of calls) {
       const { body } = await demo.get(endpoint, params);
@@ -40,19 +40,26 @@ describe("demo fixtures", () => {
   it("every ID matches the synthetic pattern, every name ends (demo), synthetic=true", async () => {
     expect(data.synthetic).toBe(true);
     expect(data.note).toBe("Hand-written demo data in the shape of Qloo's documented responses. Not from Qloo.");
-    expect(data.places.length).toBeGreaterThanOrEqual(18);
+    expect(data.places.length).toBeGreaterThanOrEqual(28);
     expect(data.destinations).toHaveLength(6);
     expect(data.tags.length).toBeGreaterThanOrEqual(20);
+    // Tag IDs are Qloo's taxonomy (so demo runs the live classification code); every name is invented.
+    const TAXONOMY_ID = /^urn:tag:(category:place|genre:place|cuisine:qloo|setting:qloo|ambience:qloo|activity_type:qloo|amenity:qloo):[a-z_:]+$/;
     for (const e of [...data.places, ...data.destinations]) {
       expect(e.entity_id).toMatch(SYNTHETIC_ID);
       expect(e.name).toMatch(/ \(demo\)$/);
       expect(e.properties?.geocode?.country_code).toBe("MU");
-      for (const t of e.tags ?? []) expect(t.id).toMatch(/^urn:tag:demo:/);
+      for (const t of e.tags ?? []) {
+        expect(t.id).toMatch(TAXONOMY_ID);
+        expect(t.name).toMatch(/ \(demo\)$/);
+      }
     }
     for (const t of data.tags) {
-      expect(t.id).toMatch(/^urn:tag:demo:/);
+      expect(t.id).toMatch(TAXONOMY_ID);
       expect(t.name).toMatch(/ \(demo\)$/);
     }
+    // Each place says what it is, as live places do.
+    for (const e of data.places) expect((e.properties?.primary_genre as { id: string }).id, e.name).toMatch(/^urn:tag:genre:place:/);
     const ids = [...data.places, ...data.destinations].map((e) => e.entity_id);
     expect(new Set(ids).size).toBe(ids.length);
     const towns = new Set(data.places.map((p) => p.properties?.geocode?.city));
@@ -99,13 +106,13 @@ describe("demo fixtures", () => {
 
   it("insights honours take, filter.tags, the town and the country, and explains each signal", async () => {
     const sig = syntheticId("s");
-    const { body } = await demo.get("insights", insightsParams({ type: "urn:entity:place", entities: [sig], filterTags: ["urn:tag:demo:place:beach"], countryCode: "MU", take: 1 }));
+    const { body } = await demo.get("insights", insightsParams({ type: "urn:entity:place", entities: [sig], filterTags: ["urn:tag:category:place:beach"], countryCode: "MU", take: 1 }));
     const ents = InsightsResponse.parse(body).results.entities;
     expect(ents).toHaveLength(1);
-    expect(ents[0]!.tags!.map((t) => t.id)).toContain("urn:tag:demo:place:beach");
+    expect(ents[0]!.tags!.map((t) => t.id)).toContain("urn:tag:category:place:beach");
     expect(ents[0]!.query?.explainability).toEqual({ "signal.interests.entities": [{ entity_id: sig, score: 1 }] });
     const inTown = InsightsResponse.parse((await demo.get("insights", insightsParams({ type: "urn:entity:place", entities: [sig], town: "mahebourg", take: 10 }))).body);
-    expect(inTown.results.entities.map((e) => e.properties?.geocode?.city)).toEqual(["Mahébourg", "Mahébourg", "Mahébourg"]);
+    expect(inTown.results.entities.map((e) => e.properties?.geocode?.city)).toEqual(["Mahébourg", "Mahébourg", "Mahébourg", "Mahébourg"]);
     const elsewhere = InsightsResponse.parse((await demo.get("insights", insightsParams({ type: "urn:entity:place", entities: [sig], countryCode: "FR", take: 10 }))).body);
     expect(elsewhere.results.entities).toEqual([]);
   });
@@ -113,8 +120,8 @@ describe("demo fixtures", () => {
   it("tags matches by substring, then by word", async () => {
     const names = async (q: string) => ((await demo.get("tags", tagsParams(q, 10))).body as { results: { tags: Array<{ name: string }> } }).results.tags.map((t) => t.name);
     expect(await names("beach")).toEqual(["Beach (demo)"]);
-    expect(await names("food")).toEqual(["Street food (demo)", "Seafood restaurant (demo)"]);
-    expect(await names("spicy street food")).toEqual(["Street food (demo)", "Seafood restaurant (demo)"]);
+    expect(await names("food")).toEqual(["Seafood (demo)", "Street food (demo)"]);
+    expect(await names("spicy street food")).toEqual(["Seafood (demo)", "Street food (demo)"]);
     expect(await names("zzzz")).toEqual([]);
   });
 

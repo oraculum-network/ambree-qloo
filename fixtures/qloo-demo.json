@@ -1,291 +1,356 @@
 {
   "synthetic": true,
   "note": "Hand-written demo data in the shape of Qloo's documented responses. Not from Qloo.",
-  "detail": "Every place and destination is invented and named '... (demo)'. Towns are real Mauritius geography; nothing else is. IDs use the all-zero synthetic range 00000000-0000-4000-8000-0000000000NN. Tags use the made-up urn:tag:demo: namespace.",
+  "detail": "Every place and destination is invented and named '... (demo)'. Towns and their rough coordinates are real Mauritius geography; nothing else is. IDs use the all-zero synthetic range 00000000-0000-4000-8000-0000000000NN. Tag IDs are Qloo's public taxonomy IDs (so demo runs the same classification code as live); every tag name is invented and ends (demo).",
   "tags": [
-    { "id": "urn:tag:demo:place:street_food", "name": "Street food (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.81 },
-    { "id": "urn:tag:demo:place:cafe", "name": "Cafe (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.77 },
-    { "id": "urn:tag:demo:place:seafood_restaurant", "name": "Seafood restaurant (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.74 },
-    { "id": "urn:tag:demo:place:creole_restaurant", "name": "Creole restaurant (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.69 },
-    { "id": "urn:tag:demo:place:sunset_bar", "name": "Sunset terrace bar (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.66 },
-    { "id": "urn:tag:demo:place:live_music", "name": "Live music (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.71 },
-    { "id": "urn:tag:demo:place:sega_dance", "name": "Sega dance (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.52 },
-    { "id": "urn:tag:demo:place:museum", "name": "Museum (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.63 },
-    { "id": "urn:tag:demo:place:market", "name": "Market (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.72 },
-    { "id": "urn:tag:demo:place:craft_shop", "name": "Craft shop (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.41 },
-    { "id": "urn:tag:demo:place:snorkelling", "name": "Snorkelling (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.68 },
-    { "id": "urn:tag:demo:place:beach", "name": "Beach (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.9 },
-    { "id": "urn:tag:demo:place:viewpoint", "name": "Viewpoint (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.64 },
-    { "id": "urn:tag:demo:place:lagoon_cruise", "name": "Lagoon cruise (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.58 },
-    { "id": "urn:tag:demo:place:bookshop", "name": "Bookshop (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.37 },
-    { "id": "urn:tag:demo:place:art_gallery", "name": "Art gallery (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.44 },
-    { "id": "urn:tag:demo:place:hiking_trail", "name": "Hiking trail (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.61 },
-    { "id": "urn:tag:demo:place:waterfall", "name": "Waterfall (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.59 },
-    { "id": "urn:tag:demo:place:rum_distillery", "name": "Rum distillery (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.55 },
-    { "id": "urn:tag:demo:place:botanical_garden", "name": "Botanical garden (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.6 },
-    { "id": "urn:tag:demo:place:cinema", "name": "Cinema (demo)", "type": "urn:tag:demo:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.39 }
+    { "id": "urn:tag:genre:place:restaurant:seafood", "name": "Seafood (demo)", "type": "urn:tag:genre:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.74 },
+    { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.81 },
+    { "id": "urn:tag:genre:place:restaurant:cafe", "name": "Cafe (demo)", "type": "urn:tag:genre:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.77 },
+    { "id": "urn:tag:cuisine:qloo:creole", "name": "Creole (demo)", "type": "urn:tag:cuisine:qloo", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.69 },
+    { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.9 },
+    { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.66 },
+    { "id": "urn:tag:amenity:qloo:live_music", "name": "Live music (demo)", "type": "urn:tag:amenity:qloo", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.71 },
+    { "id": "urn:tag:activity_type:qloo:dancing", "name": "Dancing (demo)", "type": "urn:tag:activity_type:qloo", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.52 },
+    { "id": "urn:tag:category:place:museum", "name": "Museum (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.63 },
+    { "id": "urn:tag:category:place:market", "name": "Market (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.72 },
+    { "id": "urn:tag:activity_type:qloo:snorkeling", "name": "Snorkeling (demo)", "type": "urn:tag:activity_type:qloo", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.68 },
+    { "id": "urn:tag:category:place:beach", "name": "Beach (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.9 },
+    { "id": "urn:tag:category:place:scenic_spot", "name": "Viewpoint (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.64 },
+    { "id": "urn:tag:category:place:boat_tour_agency", "name": "Boat tour (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.58 },
+    { "id": "urn:tag:category:place:book_store", "name": "Bookshop (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.37 },
+    { "id": "urn:tag:category:place:art_gallery", "name": "Art gallery (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.44 },
+    { "id": "urn:tag:category:place:hiking_area", "name": "Hiking area (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.61 },
+    { "id": "urn:tag:category:place:waterfall", "name": "Waterfall (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.59 },
+    { "id": "urn:tag:category:place:distillery", "name": "Rum distillery (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.55 },
+    { "id": "urn:tag:category:place:garden", "name": "Garden (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.6 },
+    { "id": "urn:tag:category:place:movie_theater", "name": "Cinema (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.39 },
+    { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place", "parents": [{ "type": "urn:entity:place" }], "popularity": 0.88 }
   ],
   "places": [
     {
-      "name": "Spice Lantern Kitchen (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000001",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.78,
-      "properties": { "geocode": { "name": "Port Louis", "city": "Port Louis", "country_code": "MU" } },
+      "name": "Spice Lantern Kitchen (demo)", "entity_id": "00000000-0000-4000-8000-000000000001", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.78,
+      "properties": { "geocode": { "name": "Port Louis", "city": "Port Louis", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
+      "location": { "lat": -20.1625, "lon": 57.501 },
       "tags": [
-        { "id": "urn:tag:demo:place:street_food", "name": "Street food (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:cafe", "name": "Cafe (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo" },
+        { "id": "urn:tag:ambience:qloo:lively", "name": "Lively (demo)", "type": "urn:tag:ambience:qloo" }
       ]
     },
     {
-      "name": "Harbourlight Museum of Song (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000002",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.55,
-      "properties": { "geocode": { "name": "Port Louis", "city": "Port Louis", "country_code": "MU" } },
+      "name": "Harbourlight Museum of Song (demo)", "entity_id": "00000000-0000-4000-8000-000000000002", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.64,
+      "properties": { "geocode": { "name": "Port Louis", "city": "Port Louis", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:museum" } },
+      "location": { "lat": -20.159, "lon": 57.4985 },
       "tags": [
-        { "id": "urn:tag:demo:place:museum", "name": "Museum (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:live_music", "name": "Live music (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:museum", "name": "Museum (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:amenity:qloo:live_music", "name": "Live music (demo)", "type": "urn:tag:amenity:qloo" },
+        { "id": "urn:tag:activity_type:qloo:sightseeing", "name": "Sightseeing (demo)", "type": "urn:tag:activity_type:qloo" }
       ]
     },
     {
-      "name": "Bazaar of Small Things (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000003",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.71,
-      "properties": { "geocode": { "name": "Port Louis", "city": "Port Louis", "country_code": "MU" } },
+      "name": "Bazaar of Small Things (demo)", "entity_id": "00000000-0000-4000-8000-000000000003", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.71,
+      "properties": { "geocode": { "name": "Port Louis", "city": "Port Louis", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:market" } },
+      "location": { "lat": -20.1605, "lon": 57.505 },
       "tags": [
-        { "id": "urn:tag:demo:place:market", "name": "Market (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:craft_shop", "name": "Craft shop (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:market", "name": "Market (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:ambience:qloo:lively", "name": "Lively (demo)", "type": "urn:tag:ambience:qloo" }
       ]
     },
     {
-      "name": "Blue Hour Terrace (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000004",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.66,
-      "properties": { "geocode": { "name": "Grand Baie", "city": "Grand Baie", "country_code": "MU" } },
+      "name": "Blue Hour Terrace (demo)", "entity_id": "00000000-0000-4000-8000-000000000004", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.69,
+      "properties": { "geocode": { "name": "Grand Baie", "city": "Grand Baie", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:bar" } },
+      "location": { "lat": -20.012, "lon": 57.583 },
       "tags": [
-        { "id": "urn:tag:demo:place:sunset_bar", "name": "Sunset terrace bar (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:live_music", "name": "Live music (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:amenity:qloo:live_music", "name": "Live music (demo)", "type": "urn:tag:amenity:qloo" },
+        { "id": "urn:tag:setting:qloo:beachfront", "name": "Beachfront (demo)", "type": "urn:tag:setting:qloo" }
       ]
     },
     {
-      "name": "Coral Garden Snorkel Point (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000005",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.62,
-      "properties": { "geocode": { "name": "Grand Baie", "city": "Grand Baie", "country_code": "MU" } },
+      "name": "Coral Garden Snorkel Point (demo)", "entity_id": "00000000-0000-4000-8000-000000000005", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.73,
+      "properties": { "geocode": { "name": "Grand Baie", "city": "Grand Baie", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:beach" } },
+      "location": { "lat": -20.0, "lon": 57.57 },
       "tags": [
-        { "id": "urn:tag:demo:place:snorkelling", "name": "Snorkelling (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:beach", "name": "Beach (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:beach", "name": "Beach (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:activity_type:qloo:snorkeling", "name": "Snorkeling (demo)", "type": "urn:tag:activity_type:qloo" },
+        { "id": "urn:tag:setting:qloo:coral_reef", "name": "Coral reef (demo)", "type": "urn:tag:setting:qloo" }
       ]
     },
     {
-      "name": "Driftwood Seafood Table (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000006",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.69,
-      "properties": { "geocode": { "name": "Grand Baie", "city": "Grand Baie", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:seafood_restaurant", "name": "Seafood restaurant (demo)", "type": "urn:tag:demo:place" }]
-    },
-    {
-      "name": "Long Sand Beach Walk (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000007",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.84,
-      "properties": { "geocode": { "name": "Flic en Flac", "city": "Flic en Flac", "country_code": "MU" } },
+      "name": "Driftwood Seafood Table (demo)", "entity_id": "00000000-0000-4000-8000-000000000006", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.62,
+      "properties": { "geocode": { "name": "Grand Baie", "city": "Grand Baie", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:seafood" } },
+      "location": { "lat": -20.0135, "lon": 57.585 },
       "tags": [
-        { "id": "urn:tag:demo:place:beach", "name": "Beach (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:viewpoint", "name": "Viewpoint (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:seafood_restaurant", "name": "Seafood restaurant (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:cuisine:qloo:seafood", "name": "Seafood (demo)", "type": "urn:tag:cuisine:qloo" },
+        { "id": "urn:tag:setting:qloo:beachfront", "name": "Beachfront (demo)", "type": "urn:tag:setting:qloo" }
       ]
     },
     {
-      "name": "Lagoon Glass Boat (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000008",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.57,
-      "properties": { "geocode": { "name": "Flic en Flac", "city": "Flic en Flac", "country_code": "MU" } },
+      "name": "Long Sand Beach Walk (demo)", "entity_id": "00000000-0000-4000-8000-000000000007", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.86,
+      "properties": { "geocode": { "name": "Flic en Flac", "city": "Flic en Flac", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:beach" } },
+      "location": { "lat": -20.29, "lon": 57.364 },
       "tags": [
-        { "id": "urn:tag:demo:place:lagoon_cruise", "name": "Lagoon cruise (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:snorkelling", "name": "Snorkelling (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:beach", "name": "Beach (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:activity_type:qloo:swimming", "name": "Swimming (demo)", "type": "urn:tag:activity_type:qloo" },
+        { "id": "urn:tag:setting:qloo:lagoon", "name": "Lagoon (demo)", "type": "urn:tag:setting:qloo" }
       ]
     },
     {
-      "name": "Sega Night Shack (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000009",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.6,
-      "properties": { "geocode": { "name": "Flic en Flac", "city": "Flic en Flac", "country_code": "MU" } },
+      "name": "Lagoon Glass Boat (demo)", "entity_id": "00000000-0000-4000-8000-000000000008", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.58,
+      "properties": { "geocode": { "name": "Grand Baie", "city": "Grand Baie", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:boat_tour_agency" } },
+      "location": { "lat": -20.015, "lon": 57.576 },
       "tags": [
-        { "id": "urn:tag:demo:place:sega_dance", "name": "Sega dance (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:live_music", "name": "Live music (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:sunset_bar", "name": "Sunset terrace bar (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:boat_tour_agency", "name": "Boat tour (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:setting:qloo:lagoon", "name": "Lagoon (demo)", "type": "urn:tag:setting:qloo" },
+        { "id": "urn:tag:activity_type:qloo:snorkeling", "name": "Snorkeling (demo)", "type": "urn:tag:activity_type:qloo" }
       ]
     },
     {
-      "name": "Old Fort Pages Bookshop (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000010",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.34,
-      "properties": { "geocode": { "name": "Mahébourg", "city": "Mahébourg", "country_code": "MU" } },
+      "name": "Sega Night Shack (demo)", "entity_id": "00000000-0000-4000-8000-000000000009", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.55,
+      "properties": { "geocode": { "name": "Flic en Flac", "city": "Flic en Flac", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:bar" } },
+      "location": { "lat": -20.283, "lon": 57.367 },
       "tags": [
-        { "id": "urn:tag:demo:place:bookshop", "name": "Bookshop (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:cafe", "name": "Cafe (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:amenity:qloo:live_music", "name": "Live music (demo)", "type": "urn:tag:amenity:qloo" },
+        { "id": "urn:tag:activity_type:qloo:dancing", "name": "Dancing (demo)", "type": "urn:tag:activity_type:qloo" },
+        { "id": "urn:tag:cuisine:qloo:creole", "name": "Creole (demo)", "type": "urn:tag:cuisine:qloo" }
       ]
     },
     {
-      "name": "Fishermen's Morning Market (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000011",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.64,
-      "properties": { "geocode": { "name": "Mahébourg", "city": "Mahébourg", "country_code": "MU" } },
+      "name": "Old Fort Pages Bookshop (demo)", "entity_id": "00000000-0000-4000-8000-000000000010", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.41,
+      "properties": { "geocode": { "name": "Port Louis", "city": "Port Louis", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:cafe" } },
+      "location": { "lat": -20.164, "lon": 57.507 },
       "tags": [
-        { "id": "urn:tag:demo:place:market", "name": "Market (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:street_food", "name": "Street food (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:genre:place:restaurant:cafe", "name": "Cafe (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:cafe", "name": "Cafe (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:book_store", "name": "Bookshop (demo)", "type": "urn:tag:category:place" }
       ]
     },
     {
-      "name": "Reef Light Gallery (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000012",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.4,
-      "properties": { "geocode": { "name": "Mahébourg", "city": "Mahébourg", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:art_gallery", "name": "Art gallery (demo)", "type": "urn:tag:demo:place" }]
-    },
-    {
-      "name": "Seven Hues Lookout (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000013",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.8,
-      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" } },
+      "name": "Fishermen's Morning Market (demo)", "entity_id": "00000000-0000-4000-8000-000000000011", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.67,
+      "properties": { "geocode": { "name": "Mahébourg", "city": "Mahébourg", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:market" } },
+      "location": { "lat": -20.406, "lon": 57.702 },
       "tags": [
-        { "id": "urn:tag:demo:place:viewpoint", "name": "Viewpoint (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:hiking_trail", "name": "Hiking trail (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:market", "name": "Market (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo" }
       ]
     },
     {
-      "name": "Cascade Trail (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000014",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.67,
-      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" } },
+      "name": "Reef Light Gallery (demo)", "entity_id": "00000000-0000-4000-8000-000000000012", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.44,
+      "properties": { "geocode": { "name": "Flic en Flac", "city": "Flic en Flac", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:art_gallery" } },
+      "location": { "lat": -20.28, "lon": 57.372 },
       "tags": [
-        { "id": "urn:tag:demo:place:waterfall", "name": "Waterfall (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:hiking_trail", "name": "Hiking trail (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:art_gallery", "name": "Art gallery (demo)", "type": "urn:tag:category:place" }
       ]
     },
     {
-      "name": "Cane and Copper Tasting Room (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000015",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.58,
-      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" } },
+      "name": "Seven Hues Lookout (demo)", "entity_id": "00000000-0000-4000-8000-000000000013", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.75,
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:scenic_spot" } },
+      "location": { "lat": -20.44, "lon": 57.385 },
       "tags": [
-        { "id": "urn:tag:demo:place:rum_distillery", "name": "Rum distillery (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:creole_restaurant", "name": "Creole restaurant (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:scenic_spot", "name": "Viewpoint (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:hiking_area", "name": "Hiking area (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:setting:qloo:nature", "name": "Nature (demo)", "type": "urn:tag:setting:qloo" }
       ]
     },
     {
-      "name": "Crater Rim Garden (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000016",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.5,
-      "properties": { "geocode": { "name": "Curepipe", "city": "Curepipe", "country_code": "MU" } },
+      "name": "Cascade Trail (demo)", "entity_id": "00000000-0000-4000-8000-000000000014", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.6,
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:tourist_attraction" } },
+      "location": { "lat": -20.445, "lon": 57.383 },
       "tags": [
-        { "id": "urn:tag:demo:place:botanical_garden", "name": "Botanical garden (demo)", "type": "urn:tag:demo:place" },
-        { "id": "urn:tag:demo:place:viewpoint", "name": "Viewpoint (demo)", "type": "urn:tag:demo:place" }
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:waterfall", "name": "Waterfall (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:hiking_area", "name": "Hiking area (demo)", "type": "urn:tag:category:place" }
       ]
     },
     {
-      "name": "Rainy Day Picture House (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000017",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.36,
-      "properties": { "geocode": { "name": "Curepipe", "city": "Curepipe", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:cinema", "name": "Cinema (demo)", "type": "urn:tag:demo:place" }]
+      "name": "Cane and Copper Tasting Room (demo)", "entity_id": "00000000-0000-4000-8000-000000000015", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.57,
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
+      "location": { "lat": -20.427, "lon": 57.395 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:distillery", "name": "Rum distillery (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:cuisine:qloo:creole", "name": "Creole (demo)", "type": "urn:tag:cuisine:qloo" }
+      ]
     },
     {
-      "name": "Highland Tea Cafe (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000018",
-      "type": "urn:entity",
-      "subtype": "urn:entity:place",
-      "popularity": 0.47,
-      "properties": { "geocode": { "name": "Curepipe", "city": "Curepipe", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:cafe", "name": "Cafe (demo)", "type": "urn:tag:demo:place" }]
+      "name": "Crater Rim Garden (demo)", "entity_id": "00000000-0000-4000-8000-000000000016", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.52,
+      "properties": { "geocode": { "name": "Curepipe", "city": "Curepipe", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:garden" } },
+      "location": { "lat": -20.322, "lon": 57.52 },
+      "tags": [
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:garden", "name": "Garden (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:scenic_spot", "name": "Viewpoint (demo)", "type": "urn:tag:category:place" }
+      ]
+    },
+    {
+      "name": "Rainy Day Picture House (demo)", "entity_id": "00000000-0000-4000-8000-000000000017", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.39,
+      "properties": { "geocode": { "name": "Curepipe", "city": "Curepipe", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:movie_theater" } },
+      "location": { "lat": -20.316, "lon": 57.526 },
+      "tags": [{ "id": "urn:tag:category:place:movie_theater", "name": "Cinema (demo)", "type": "urn:tag:category:place" }]
+    },
+    {
+      "name": "Highland Tea Cafe (demo)", "entity_id": "00000000-0000-4000-8000-000000000018", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.47,
+      "properties": { "geocode": { "name": "Curepipe", "city": "Curepipe", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:cafe" } },
+      "location": { "lat": -20.317, "lon": 57.525 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:genre:place:restaurant:cafe", "name": "Cafe (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:cafe", "name": "Cafe (demo)", "type": "urn:tag:category:place" }
+      ]
+    },
+    {
+      "name": "Lagoon Fish Cantine (demo)", "entity_id": "00000000-0000-4000-8000-000000000019", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.6,
+      "properties": { "geocode": { "name": "Mahébourg", "city": "Mahébourg", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
+      "location": { "lat": -20.408, "lon": 57.705 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:cuisine:qloo:seafood", "name": "Seafood (demo)", "type": "urn:tag:cuisine:qloo" },
+        { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo" }
+      ]
+    },
+    {
+      "name": "Pier Lights Bar (demo)", "entity_id": "00000000-0000-4000-8000-000000000020", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.5,
+      "properties": { "geocode": { "name": "Mahébourg", "city": "Mahébourg", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:bar" } },
+      "location": { "lat": -20.405, "lon": 57.706 },
+      "tags": [
+        { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:amenity:qloo:live_music", "name": "Live music (demo)", "type": "urn:tag:amenity:qloo" }
+      ]
+    },
+    {
+      "name": "Quayside Lantern Bar (demo)", "entity_id": "00000000-0000-4000-8000-000000000031", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.56,
+      "properties": { "geocode": { "name": "Port Louis", "city": "Port Louis", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:bar" } },
+      "location": { "lat": -20.16, "lon": 57.497 },
+      "tags": [
+        { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:ambience:qloo:lively", "name": "Lively (demo)", "type": "urn:tag:ambience:qloo" }
+      ]
+    },
+    {
+      "name": "Palm Crown Resort (demo)", "entity_id": "00000000-0000-4000-8000-000000000032", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.93,
+      "properties": { "geocode": { "name": "Grand Baie", "city": "Grand Baie", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:hotel:resort" } },
+      "location": { "lat": -20.005, "lon": 57.59 },
+      "tags": [
+        { "id": "urn:tag:category:place:resort_hotel", "name": "Resort hotel (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:cuisine:qloo:seafood", "name": "Seafood (demo)", "type": "urn:tag:cuisine:qloo" },
+        { "id": "urn:tag:setting:qloo:beachfront", "name": "Beachfront (demo)", "type": "urn:tag:setting:qloo" }
+      ]
+    },
+    {
+      "name": "Sunset Grill Shack (demo)", "entity_id": "00000000-0000-4000-8000-000000000033", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.63,
+      "properties": { "geocode": { "name": "Flic en Flac", "city": "Flic en Flac", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
+      "location": { "lat": -20.287, "lon": 57.366 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:grill", "name": "Grill (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:cuisine:qloo:seafood", "name": "Seafood (demo)", "type": "urn:tag:cuisine:qloo" },
+        { "id": "urn:tag:setting:qloo:beachfront", "name": "Beachfront (demo)", "type": "urn:tag:setting:qloo" }
+      ]
+    },
+    {
+      "name": "Tamarind Bay Hotel (demo)", "entity_id": "00000000-0000-4000-8000-000000000034", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.9,
+      "properties": { "geocode": { "name": "Flic en Flac", "city": "Flic en Flac", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:hotel" } },
+      "location": { "lat": -20.295, "lon": 57.368 },
+      "tags": [
+        { "id": "urn:tag:category:place:hotel", "name": "Hotel (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:cuisine:qloo:seafood", "name": "Seafood (demo)", "type": "urn:tag:cuisine:qloo" }
+      ]
+    },
+    {
+      "name": "Hillside Creole Kitchen (demo)", "entity_id": "00000000-0000-4000-8000-000000000035", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.54,
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
+      "location": { "lat": -20.43, "lon": 57.39 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:cuisine:qloo:creole", "name": "Creole (demo)", "type": "urn:tag:cuisine:qloo" },
+        { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo" }
+      ]
+    },
+    {
+      "name": "Ridge Fire Bar (demo)", "entity_id": "00000000-0000-4000-8000-000000000036", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.48,
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:bar" } },
+      "location": { "lat": -20.429, "lon": 57.393 },
+      "tags": [
+        { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:ambience:qloo:relaxing", "name": "Relaxing (demo)", "type": "urn:tag:ambience:qloo" }
+      ]
+    },
+    {
+      "name": "Highland Craft Market (demo)", "entity_id": "00000000-0000-4000-8000-000000000037", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.5,
+      "properties": { "geocode": { "name": "Curepipe", "city": "Curepipe", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:market" } },
+      "location": { "lat": -20.319, "lon": 57.527 },
+      "tags": [
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:market", "name": "Market (demo)", "type": "urn:tag:category:place" }
+      ]
+    },
+    {
+      "name": "Mist and Ember Pub (demo)", "entity_id": "00000000-0000-4000-8000-000000000038", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.43,
+      "properties": { "geocode": { "name": "Curepipe", "city": "Curepipe", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:bar" } },
+      "location": { "lat": -20.3185, "lon": 57.523 },
+      "tags": [
+        { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:pub", "name": "Pub (demo)", "type": "urn:tag:category:place" }
+      ]
+    },
+    {
+      "name": "Old Harbour Museum (demo)", "entity_id": "00000000-0000-4000-8000-000000000039", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.53,
+      "properties": { "geocode": { "name": "Mahébourg", "city": "Mahébourg", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:museum" } },
+      "location": { "lat": -20.41, "lon": 57.7 },
+      "tags": [
+        { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:category:place:museum", "name": "Museum (demo)", "type": "urn:tag:category:place" }
+      ]
     }
   ],
   "destinations": [
     {
-      "name": "North Lagoon Coast (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000021",
-      "type": "urn:entity",
-      "subtype": "urn:entity:destination",
-      "popularity": 0.82,
+      "name": "North Lagoon Coast (demo)", "entity_id": "00000000-0000-4000-8000-000000000021", "type": "urn:entity", "subtype": "urn:entity:destination", "popularity": 0.82,
       "properties": { "geocode": { "name": "Grand Baie", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:beach", "name": "Beach (demo)", "type": "urn:tag:demo:place" }]
+      "tags": [{ "id": "urn:tag:category:place:beach", "name": "Beach (demo)", "type": "urn:tag:category:place" }]
     },
     {
-      "name": "West Sunset Coast (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000022",
-      "type": "urn:entity",
-      "subtype": "urn:entity:destination",
-      "popularity": 0.79,
+      "name": "West Sunset Coast (demo)", "entity_id": "00000000-0000-4000-8000-000000000022", "type": "urn:entity", "subtype": "urn:entity:destination", "popularity": 0.79,
       "properties": { "geocode": { "name": "Flic en Flac", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:sunset_bar", "name": "Sunset terrace bar (demo)", "type": "urn:tag:demo:place" }]
+      "tags": [{ "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" }]
     },
     {
-      "name": "Southeast Fishing Coast (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000023",
-      "type": "urn:entity",
-      "subtype": "urn:entity:destination",
-      "popularity": 0.61,
+      "name": "Southeast Fishing Coast (demo)", "entity_id": "00000000-0000-4000-8000-000000000023", "type": "urn:entity", "subtype": "urn:entity:destination", "popularity": 0.61,
       "properties": { "geocode": { "name": "Mahébourg", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:market", "name": "Market (demo)", "type": "urn:tag:demo:place" }]
+      "tags": [{ "id": "urn:tag:category:place:market", "name": "Market (demo)", "type": "urn:tag:category:place" }]
     },
     {
-      "name": "Southwest Uplands (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000024",
-      "type": "urn:entity",
-      "subtype": "urn:entity:destination",
-      "popularity": 0.7,
+      "name": "Southwest Uplands (demo)", "entity_id": "00000000-0000-4000-8000-000000000024", "type": "urn:entity", "subtype": "urn:entity:destination", "popularity": 0.7,
       "properties": { "geocode": { "name": "Chamarel", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:hiking_trail", "name": "Hiking trail (demo)", "type": "urn:tag:demo:place" }]
+      "tags": [{ "id": "urn:tag:category:place:hiking_area", "name": "Hiking area (demo)", "type": "urn:tag:category:place" }]
     },
     {
-      "name": "Central Plateau Towns (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000025",
-      "type": "urn:entity",
-      "subtype": "urn:entity:destination",
-      "popularity": 0.45,
+      "name": "Central Plateau Towns (demo)", "entity_id": "00000000-0000-4000-8000-000000000025", "type": "urn:entity", "subtype": "urn:entity:destination", "popularity": 0.45,
       "properties": { "geocode": { "name": "Curepipe", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:botanical_garden", "name": "Botanical garden (demo)", "type": "urn:tag:demo:place" }]
+      "tags": [{ "id": "urn:tag:category:place:garden", "name": "Garden (demo)", "type": "urn:tag:category:place" }]
     },
     {
-      "name": "Capital Harbour Quarter (demo)",
-      "entity_id": "00000000-0000-4000-8000-000000000026",
-      "type": "urn:entity",
-      "subtype": "urn:entity:destination",
-      "popularity": 0.66,
+      "name": "Capital Harbour Quarter (demo)", "entity_id": "00000000-0000-4000-8000-000000000026", "type": "urn:entity", "subtype": "urn:entity:destination", "popularity": 0.66,
       "properties": { "geocode": { "name": "Port Louis", "country_code": "MU" } },
-      "tags": [{ "id": "urn:tag:demo:place:museum", "name": "Museum (demo)", "type": "urn:tag:demo:place" }]
+      "tags": [{ "id": "urn:tag:category:place:museum", "name": "Museum (demo)", "type": "urn:tag:category:place" }]
     }
   ]
 }

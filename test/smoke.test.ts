@@ -67,7 +67,7 @@ describe("smoke", () => {
       "OK /v2/insights 200 5 results (signal: entity from /search)",
     ]);
     expect(r.stdout).toContain("\nMU check: 5 of 5 results have country_code MU (filter: filter.geocode.country_code=MU)\n");
-    expect(r.stdout).toContain("\nOptional fields seen: properties.geocode.name, properties.geocode.country_code, properties.address, tags\n");
+    expect(r.stdout).toContain("\nOptional fields seen: properties.geocode.name, properties.geocode.country_code, properties.address, properties.primary_genre, location, tags\n");
     expect(r.stdout).toContain("RESULT: OK");
   });
 
