@@ -24,6 +24,12 @@ export const PLAN_TAKE = 25;
 /** After the first stop the day stays within this many km of it; once widened to WIDE_KM if a slot is empty. */
 export const REGION_KM = 15;
 export const WIDE_KM = 25;
+/**
+ * Qloo calls one plan may make, cached ones included: one per taste (6 at most) and 3
+ * Insights calls always fit; the afternoon's radius call and the widening calls only
+ * while there is room. The per-client and daily caps (src/qloo/client.ts) still apply.
+ */
+export const PLAN_CALL_BUDGET = 10;
 
 export const STOP_KINDS = ["thing_to_do", "restaurant", "bar"] as const;
 export type StopKind = (typeof STOP_KINDS)[number];
@@ -276,26 +282,33 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
       let km = REGION_KM;
       const where = (): Where => (center ? { near: { ...center, radiusM: km * 1000 } } : { town: args.town });
       const pools: Record<Pool, Candidate[]> = { things, nearThings: things, restaurants: [], bars: [] };
-      const load = (which: Pool[]) =>
-        Promise.all(
-          which.map(async (pool) => {
-            if (pool === "nearThings") {
-              // The island list often has a second sight nearby; else ask Qloo around the first stop.
-              const near = where().near;
-              const local = things.filter((c) => c !== first && within(c.e, near));
-              pools.nearThings = local.length || !near ? local : await fetchPool(reply, "nearThings", thingsSig, where(), names);
-            } else {
-              pools[pool] = await fetchPool(reply, pool, mealSig, where(), names);
-            }
+      // Load pools in the order given, within the plan's call budget (later pools are skipped).
+      const load = async (which: Pool[]) => {
+        const calls: Pool[] = [];
+        for (const pool of which) {
+          if (pool === "nearThings") {
+            // The island list often has a second sight nearby (no call); else ask Qloo around the first stop.
+            const near = where().near;
+            pools.nearThings = things.filter((c) => c !== first && within(c.e, near));
+            if (pools.nearThings.length || !near) continue;
+          }
+          calls.push(pool);
+        }
+        const room = Math.max(0, PLAN_CALL_BUDGET - reply.calls.length);
+        await Promise.all(
+          calls.slice(0, room).map(async (pool) => {
+            pools[pool] = await fetchPool(reply, pool, pool === "nearThings" ? thingsSig : mealSig, where(), names);
           }),
         );
+      };
       await load(["restaurants", "bars", ...(slots.includes("afternoon") && center ? (["nearThings"] as const) : [])]);
       let picks = fillSlots(slots, pools, prefs);
       // Too few places nearby: widen once, for the slots left empty.
       const empty = slots.filter((s) => s !== "morning" && !picks.some((p) => p.slot === s));
       if (center && empty.length) {
         km = WIDE_KM;
-        await load([...new Set(empty.flatMap((s): Pool[] => (s === "lunch" ? ["restaurants"] : s === "afternoon" ? ["nearThings"] : ["bars", "restaurants"])))]);
+        // Lunch first: if the budget allows only some calls, the meal matters most.
+        await load([...new Set(empty.flatMap((s): Pool[] => (s === "lunch" ? ["restaurants"] : s === "afternoon" ? ["nearThings"] : ["restaurants", "bars"])))]);
         picks = fillSlots(slots, pools, prefs);
       }
       if (center && first) area = { around: first.place.town ?? first.place.name, radius_km: km };

@@ -6,7 +6,7 @@ import { PLACE_TYPE, insightsParams } from "../src/qloo/client.ts";
 import { InsightsResponse } from "../src/qloo/contract.ts";
 import { createDemoTransport } from "../src/qloo/fixtures.ts";
 import type { ToolOutcome } from "../src/tools/context.ts";
-import { type PlanDayOutput, ordinal, planDay, planDayInput, planDayOutput } from "../src/tools/plan-day.ts";
+import { PLAN_CALL_BUDGET, type PlanDayOutput, ordinal, planDay, planDayInput, planDayOutput } from "../src/tools/plan-day.ts";
 import { MU_BY_COUNTRY, MU_BY_LOCATION, MU_FILTER, rankIn, rankPlaces, rankPlacesInput } from "../src/tools/rank-places.ts";
 import { resolveTastes, resolveTastesInput } from "../src/tools/resolve-tastes.ts";
 import { sentences } from "../src/tools/speech.ts";
@@ -458,6 +458,46 @@ describe("plan_day", () => {
         expect(out.day.length, JSON.stringify(tastes)).toBeGreaterThanOrEqual(3);
         for (const s of out.day.slice(1)) expect(s.km_from_start!, s.place).toBeLessThanOrEqual(out.area!.radius_km);
       }
+    });
+  });
+
+  describe("at most 10 Qloo calls a plan", () => {
+    // One sight in the west and nothing else nearby: every optional call is wanted.
+    const lonely: MockPlace[] = [
+      { name: "West Beach", country: "MU", ...SIGHT, lat: -20.29, lon: 57.36, affinity: 0.9 },
+      { name: "North Grill", country: "MU", ...RESTAURANT, lat: -20.01, lon: 57.58, affinity: 0.9 },
+    ];
+    const tastes = (n: number) => planDayInput.parse({ tastes: [...Array.from({ length: n - 1 }, (_, i) => ({ kind: "music", name: `Band ${"x".repeat(i + 1)}` })), { kind: "food", name: "seafood" }] });
+
+    it("3 tastes: 3 lookups, 3 Insights calls, the afternoon's radius call and 3 widening calls = 10", async () => {
+      mock = await startQlooMock({ places: lonely });
+      const out = ok(await planDay(tastes(3), liveDeps(mock)));
+      expect(mock.requests).toHaveLength(PLAN_CALL_BUDGET);
+      expect(out.qloo_calls).toHaveLength(10);
+      expect(out.day.map((s) => s.place)).toEqual(["West Beach"]);
+      expect(insightsCalls(mock).map((q) => q["filter.location.radius"] ?? "island").sort()).toEqual(["15000", "15000", "15000", "25000", "25000", "25000", "island"]);
+    });
+
+    it("6 tastes: the optional calls stop at the budget; the meals are asked for before the afternoon", async () => {
+      mock = await startQlooMock({ places: lonely });
+      const out = ok(await planDay(tastes(6), liveDeps(mock)));
+      expect(mock.requests.length).toBeLessThanOrEqual(PLAN_CALL_BUDGET);
+      expect(out.qloo_calls.length).toBeLessThanOrEqual(PLAN_CALL_BUDGET);
+      // 6 lookups + the island-wide sights + restaurants and bars within 15 km = 9; one call left, for the afternoon.
+      const insights = insightsCalls(mock).map((q) => `${q["filter.tags"]!.split(":").pop()} ${q["filter.location.radius"] ?? "island"}`);
+      expect(insights.sort()).toEqual(["bar 15000", "restaurant 15000", "tourist_attraction 15000", "tourist_attraction island"]);
+    });
+
+    it("the same plan again is all cache hits; another plan with the same food reuses its tag lookup", async () => {
+      mock = await startQlooMock({ places: FULL_DAY });
+      const deps = liveDeps(mock);
+      ok(await planDay(tastes(2), deps));
+      const sent = mock.requests.length;
+      const again = ok(await planDay(tastes(2), deps));
+      expect(mock.requests).toHaveLength(sent);
+      expect(again.qloo_calls.every((c) => c.cached)).toBe(true);
+      ok(await planDay(planDayInput.parse({ tastes: [{ kind: "film", name: "Other Film" }, { kind: "food", name: "seafood" }] }), deps));
+      expect(mock.requests.filter((r) => r.url.startsWith("/v2/tags"))).toHaveLength(1);
     });
   });
 
