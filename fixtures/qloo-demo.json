@@ -156,7 +156,7 @@
     },
     {
       "name": "Seven Hues Lookout (demo)", "entity_id": "00000000-0000-4000-8000-000000000013", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.75,
-      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:scenic_spot" } },
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel VCA","country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:scenic_spot" } },
       "location": { "lat": -20.44, "lon": 57.385 },
       "tags": [
         { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
@@ -167,7 +167,7 @@
     },
     {
       "name": "Cascade Trail (demo)", "entity_id": "00000000-0000-4000-8000-000000000014", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.6,
-      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:tourist_attraction" } },
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel VCA","country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:tourist_attraction" } },
       "location": { "lat": -20.445, "lon": 57.383 },
       "tags": [
         { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
@@ -177,7 +177,7 @@
     },
     {
       "name": "Cane and Copper Tasting Room (demo)", "entity_id": "00000000-0000-4000-8000-000000000015", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.57,
-      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel VCA","country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
       "location": { "lat": -20.427, "lon": 57.395 },
       "tags": [
         { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
@@ -276,7 +276,7 @@
     },
     {
       "name": "Hillside Creole Kitchen (demo)", "entity_id": "00000000-0000-4000-8000-000000000035", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.54,
-      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel VCA","country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
       "location": { "lat": -20.43, "lon": 57.39 },
       "tags": [
         { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
@@ -286,7 +286,7 @@
     },
     {
       "name": "Ridge Fire Bar (demo)", "entity_id": "00000000-0000-4000-8000-000000000036", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.48,
-      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:bar" } },
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel VCA","country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:bar" } },
       "location": { "lat": -20.429, "lon": 57.393 },
       "tags": [
         { "id": "urn:tag:category:place:bar", "name": "Bar (demo)", "type": "urn:tag:category:place" },

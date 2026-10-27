@@ -117,6 +117,63 @@ export function liveMusicTag(e: InsightsEntity): { id: string; name: string } | 
   return e.properties?.live_music === true ? { id: "properties.live_music", name: "Live music" } : undefined;
 }
 
+/** Tags too generic to tell places apart. */
+const GENERIC_TAGS = new Set([
+  "urn:tag:genre:place",
+  RESTAURANT_GENRE,
+  "urn:tag:category:place:restaurant",
+  FILTER_TAGS.thingsToDo,
+  "urn:tag:genre:place:tourist_attraction",
+  HOTEL_GENRE,
+  "urn:tag:category:place:hotel",
+]);
+/** Tag types worth showing, most telling first. Other Qloo types (payments, parking, age range...) are not shown. */
+const TELLING_TYPES = [
+  "urn:tag:category:place",
+  "urn:tag:cuisine:qloo",
+  "urn:tag:genre:place",
+  "urn:tag:setting:qloo",
+  "urn:tag:activity_type:qloo",
+  "urn:tag:view:qloo",
+  "urn:tag:ambience:qloo",
+  "urn:tag:amenity:qloo",
+];
+export const MAX_TAGS = 4;
+
+/**
+ * The few tag names that best say what a place is: `lead` first (the tag that matched a
+ * taste), then at most one per telling type in that order; no generic or repeated names.
+ * Tags outside Qloo's namespaces (tests, demo) come last.
+ */
+export function tellingTags(e: InsightsEntity, lead: string[] = []): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (name: string) => {
+    const key = name.toLowerCase();
+    if (seen.has(key) || out.length >= MAX_TAGS) return;
+    seen.add(key);
+    out.push(name);
+  };
+  for (const name of lead) add(name);
+  const ranked: Array<{ name: string; type: string; order: number }> = [];
+  for (const t of e.tags ?? []) {
+    const id = t.id ?? t.tag_id;
+    if (!t.name || !id || GENERIC_TAGS.has(id)) continue;
+    const type = t.type ?? id.split(":").slice(0, -1).join(":");
+    const order = TELLING_TYPES.indexOf(type);
+    if (order < 0 && /:(qloo|place)$/.test(type) && !/^urn:tag:(demo|test):/.test(type)) continue;
+    ranked.push({ name: t.name, type, order: order < 0 ? TELLING_TYPES.length : order });
+  }
+  ranked.sort((a, b) => a.order - b.order);
+  const typesUsed = new Set<string>();
+  for (const t of ranked) {
+    if (typesUsed.has(t.type) || seen.has(t.name.toLowerCase())) continue;
+    typesUsed.add(t.type);
+    add(t.name);
+  }
+  return out;
+}
+
 /** Something to do between meals: not a hotel, and not mainly a place to eat or drink. */
 export function isThingToDo(e: InsightsEntity): boolean {
   if (isHotel(e)) return false;

@@ -112,9 +112,19 @@ export function affinityOf(e: InsightsEntity): number {
   return e.query?.affinity ?? e.properties?.affinity ?? 0;
 }
 
-/** The town of a place: geocode.city, else geocode.name; undefined if both are missing, null or empty. */
+/**
+ * A town name without the administrative suffix Mauritius geocodes carry: "Le Morne VCA",
+ * "Grand Baie VCA, East" and "Cascavelle VCA West" read "Le Morne", "Grand Baie", "Cascavelle".
+ */
+export function cleanTown(town: string): string {
+  const bare = town.replace(/\s+(VCA|Village Council Area|District Council|District|Municipal Council|Municipality)\b.*$/i, "").trim();
+  return bare || town.trim();
+}
+
+/** The town of a place: geocode.city, else geocode.name, cleaned; undefined if both are missing, null or empty. */
 export function townOf(e: InsightsEntity): string | undefined {
-  return e.properties?.geocode?.city || e.properties?.geocode?.name || undefined;
+  const raw = e.properties?.geocode?.city || e.properties?.geocode?.name;
+  return raw ? cleanTown(raw) : undefined;
 }
 
 /** A place's coordinates from `location.lat` and `location.lon`; undefined unless both are finite numbers. */

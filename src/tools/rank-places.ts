@@ -6,6 +6,7 @@ import { z } from "zod";
 import { type CountryFilter, DESTINATION_TYPE, type InsightsParams, PLACE_TYPE, QlooError, type QlooReply } from "../qloo/client.ts";
 import { type InsightsEntity, affinityOf, explainedBy, townOf } from "../qloo/contract.ts";
 import { type ToolDeps, type ToolOutcome, fail, modeOut, noticeOut, qlooCallsOut, qlooFailure } from "./context.ts";
+import { tellingTags } from "./places.ts";
 import { joinNames, speak, spokenName } from "./speech.ts";
 
 /** Mauritius's country code in Qloo's results. The guard compares against it, whichever filter is sent. */
@@ -37,7 +38,7 @@ export const rankedPlaceOut = z.object({
   name: z.string(),
   town: z.string().optional(),
   affinity: z.number().describe("Qloo's affinity score, 0 to 1 (0 when Qloo sent none; results then keep Qloo's order)."),
-  tags: z.array(z.string()).describe("Qloo tag names on the place."),
+  tags: z.array(z.string()).describe("Up to 4 Qloo tag names that best say what the place is."),
   why: z.array(z.string()).describe("The tastes that contributed most, strongest first."),
   location_unverified: z.boolean().optional().describe("true when Qloo gave no country code for this result."),
 });
@@ -79,7 +80,7 @@ export function toRanked(e: InsightsEntity, names: SignalNames, signalTags: Set<
     name: e.name,
     ...(town ? { town } : {}),
     affinity: Math.round(affinityOf(e) * 1000) / 1000,
-    tags: (e.tags ?? []).flatMap((t) => (t.name ? [t.name] : [])).slice(0, 6),
+    tags: tellingTags(e),
     why,
     ...(e.properties?.geocode?.country_code ? {} : { location_unverified: true }),
   };

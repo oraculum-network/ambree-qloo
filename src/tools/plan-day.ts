@@ -11,7 +11,7 @@ import { PLACE_TYPE, type QlooReply } from "../qloo/client.ts";
 import { distanceKm } from "../geo.ts";
 import { type InsightsEntity, affinityOf, explainedBy, pointOf } from "../qloo/contract.ts";
 import { type ToolDeps, type ToolOutcome, modeOut, noticeOut, qlooCallsOut, qlooFailure, tastesInput } from "./context.ts";
-import { FILTER_TAGS, cuisineOf, cuisineTag, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, liveMusicTag } from "./places.ts";
+import { FILTER_TAGS, cuisineOf, cuisineTag, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, liveMusicTag, tellingTags } from "./places.ts";
 import { type Signal, type Unresolved, resolveAll, signalOut, unresolvedOut } from "./resolve-tastes.ts";
 import { type RankedPlace, type SignalNames, fetchInMU, toRanked } from "./rank-places.ts";
 import { capitalise, joinNames, speak, spokenName } from "./speech.ts";
@@ -43,7 +43,7 @@ export const stopOut = z.object({
   town: z.string().optional(),
   km_from_start: z.number().optional().describe("Straight-line kilometres from the day's first stop."),
   affinity: z.number().describe("Qloo's affinity score, 0 to 1 (0 when Qloo sent none)."),
-  tags: z.array(z.string()),
+  tags: z.array(z.string()).describe("Up to 4 Qloo tag names that best say what the place is; a tag matching a taste first."),
   why: z.string().describe("Why Qloo suggests this stop for these tastes."),
   location_unverified: z.boolean().optional().describe("true when Qloo gave no country code for this place."),
 });
@@ -311,7 +311,7 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
           ...(c.place.town ? { town: c.place.town } : {}),
           ...(center && at && c !== first ? { km_from_start: Math.round(distanceKm(center, at) * 10) / 10 } : {}),
           affinity: c.place.affinity,
-          tags: c.place.tags,
+          tags: tellingTags(c.e, pick.match ? [pick.match.tag] : []),
           why: whyFor(pick, names, fanOf),
           ...(c.place.location_unverified ? { location_unverified: true } : {}),
         };

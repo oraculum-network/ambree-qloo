@@ -9,7 +9,7 @@
 
 import { readFileSync } from "node:fs";
 import { distanceKm, parsePoint } from "../geo.ts";
-import { type Endpoint, type InsightsEntity, type Tag, pointOf } from "./contract.ts";
+import { type Endpoint, type InsightsEntity, type Tag, cleanTown, pointOf } from "./contract.ts";
 import type { Params, QlooTransport } from "./client.ts";
 
 export const DEMO_FILE = new URL("../../fixtures/qloo-demo.json", import.meta.url);
@@ -111,7 +111,7 @@ export function createDemoTransport(data: DemoData = loadDemoData()): QlooTransp
       const g = e.properties?.geocode ?? {};
       if (country && g.country_code !== country) return false;
       if (location !== undefined && fold(location) !== "mauritius") return false;
-      if (town && fold(g.city ?? g.name ?? "") !== fold(town)) return false;
+      if (town && fold(cleanTown(g.city ?? g.name ?? "")) !== fold(cleanTown(town))) return false;
       if (filterTags.length && !(e.tags ?? []).some((t) => t.id && filterTags.includes(t.id))) return false;
       if (center && radiusKm > 0) {
         const at = pointOf(e);

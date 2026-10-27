@@ -2,8 +2,21 @@
 // like the live ones: properties.primary_genre.id plus category/genre tags.
 
 import { describe, expect, it } from "vitest";
-import type { InsightsEntity } from "../src/qloo/contract.ts";
-import { FILTER_TAGS, cuisineOf, cuisineTag, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, liveMusicTag, primaryGenre } from "../src/tools/places.ts";
+import { type InsightsEntity, cleanTown, townOf } from "../src/qloo/contract.ts";
+import {
+  FILTER_TAGS,
+  MAX_TAGS,
+  cuisineOf,
+  cuisineTag,
+  isBar,
+  isHotel,
+  isMainlyBar,
+  isRestaurant,
+  isThingToDo,
+  liveMusicTag,
+  primaryGenre,
+  tellingTags,
+} from "../src/tools/places.ts";
 import { id } from "./helpers/shapes.ts";
 
 function place(genre: string | undefined, tagIds: string[] = []): InsightsEntity {
@@ -84,6 +97,49 @@ describe("places", () => {
     const flagged = { ...place("urn:tag:genre:place:restaurant:bar"), properties: { live_music: true } };
     expect(liveMusicTag(flagged)?.name).toBe("Live music");
     expect(liveMusicTag({ ...flagged, properties: { live_music: null } })).toBeUndefined();
+  });
+
+  it("towns lose their admin suffixes", () => {
+    const cases: Array<[string, string]> = [
+      ["Le Morne VCA", "Le Morne"],
+      ["Grand Baie VCA, East", "Grand Baie"],
+      ["Cascavelle VCA West", "Cascavelle"],
+      ["Trou d’Eau Douce VCA", "Trou d’Eau Douce"],
+      ["Black River District", "Black River"],
+      ["Grand River South East", "Grand River South East"],
+      ["Beau Bassin / Rose Hill", "Beau Bassin / Rose Hill"],
+      ["Vacoas-Phoenix", "Vacoas-Phoenix"],
+      ["VCA", "VCA"],
+    ];
+    for (const [raw, clean] of cases) expect(cleanTown(raw), raw).toBe(clean);
+    expect(townOf({ ...place(undefined), properties: { geocode: { city: "Chamarel VCA, West", name: "Mascarene Islands" } } })).toBe("Chamarel");
+  });
+
+  it("tags: up to 4, deduped, most telling first, generic and admin types left out", () => {
+    // A place shaped like a live seafood grill: many tags, repeats, generic ones, payment details.
+    const grill = place("urn:tag:genre:place:restaurant", [
+      "urn:tag:genre:place:restaurant",
+      "urn:tag:payments:place:debit_cards",
+      "urn:tag:age_range:qloo:25_29",
+      "urn:tag:setting:qloo:beachfront",
+      "urn:tag:category:place:grill",
+      "urn:tag:cuisine:qloo:seafood",
+      "urn:tag:cuisine:qloo:grill",
+      "urn:tag:ambience:qloo:lively",
+      "urn:tag:category:place:restaurant",
+      "urn:tag:genre:place",
+    ]);
+    const named = (e: InsightsEntity) => ({ ...e, tags: e.tags!.map((t) => ({ ...t, name: t.id!.split(":").pop()!.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()) })) });
+    expect(tellingTags(named(grill))).toEqual(["Grill", "Seafood", "Beachfront", "Lively"]);
+    // The tag that matched a taste leads; a repeat of it is not shown twice.
+    expect(tellingTags(named(grill), ["Seafood"])).toEqual(["Seafood", "Grill", "Beachfront", "Lively"]);
+    // Two tags with the same name ("Pool, Pool" on the live page) show once.
+    const pools = { ...place("urn:tag:genre:place:hotel"), tags: [
+      { id: "urn:tag:amenity:qloo:pool", name: "Pool", type: "urn:tag:amenity:qloo" },
+      { id: "urn:tag:setting:qloo:pool", name: "Pool", type: "urn:tag:setting:qloo" },
+    ] };
+    expect(tellingTags(pools)).toEqual(["Pool"]);
+    expect(MAX_TAGS).toBe(4);
   });
 
   it("with no primary genre, the tags decide", () => {

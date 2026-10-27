@@ -534,6 +534,12 @@ describe("plan_day", () => {
         const whys = out.day.map((s) => s.why);
         expect(new Set(whys).size, whys.join("\n")).toBe(whys.length);
         for (const w of whys) expect(w).toMatch(/^Fans of .+ tend to like it: (Qloo ranks it \d+(st|nd|rd|th) of \d+ |it is the only )/);
+        for (const s of out.day) {
+          expect(s.town ?? "").not.toMatch(/VCA/);
+          expect(s.tags.length).toBeLessThanOrEqual(4);
+          expect(new Set(s.tags).size).toBe(s.tags.length);
+          expect(s.tags).not.toContain("Restaurant (demo)");
+        }
       }
     });
   });
@@ -669,7 +675,8 @@ describe("live shapes (27 Oct 2026, synthetic values)", () => {
       ["Live Shape Place 1 (demo)", undefined, true],
       ["Live Shape Place 2 (demo)", undefined, true],
     ]);
-    expect(out.places[0]!.tags).toEqual(["Test tag 0 (demo)", "Tourist attraction (demo)"]);
+    // "Tourist attraction" is too generic to show.
+    expect(out.places[0]!.tags).toEqual(["Test tag 0 (demo)"]);
     expect(out.dropped_non_mu).toBe(1);
     expect(out.speech).toBe("Qloo's top places for you are Live Shape Place 0 in Port Louis, Live Shape Place 1 and Live Shape Place 2.");
     expect(JSON.stringify(out)).not.toContain("null");

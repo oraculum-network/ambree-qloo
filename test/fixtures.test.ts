@@ -63,7 +63,8 @@ describe("demo fixtures", () => {
     const ids = [...data.places, ...data.destinations].map((e) => e.entity_id);
     expect(new Set(ids).size).toBe(ids.length);
     const towns = new Set(data.places.map((p) => p.properties?.geocode?.city));
-    expect([...towns].sort()).toEqual(["Chamarel", "Curepipe", "Flic en Flac", "Grand Baie", "Mahébourg", "Port Louis"]);
+    // "Chamarel VCA": the admin suffix live geocodes carry, so demo shows it cleaned.
+    expect([...towns].sort()).toEqual(["Chamarel VCA", "Curepipe", "Flic en Flac", "Grand Baie", "Mahébourg", "Port Louis"]);
     const { body } = await demo.get("search", searchParams("Some Band", "urn:entity:artist"));
     const hit = (body as { results: Array<{ entity_id: string; name: string }> }).results[0]!;
     expect(hit.entity_id).toMatch(SYNTHETIC_ID);
