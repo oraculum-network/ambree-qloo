@@ -153,14 +153,14 @@ deploy/                k8s manifests and the key-storing script; see DEPLOY.md
 
 ## Limitations
 
-- Coverage of Mauritius in Qloo's graph is unknown until the first live run; the planner says so when Qloo finds no
-  places rather than inventing any.
-- Qloo's documentation describes `query.explainability` but shows no example; the reader is lenient, and a stop
-  without it says "A strong Qloo match for your tastes."
+- Coverage depends on Qloo's graph: when Qloo returns no place of a kind near the first stop, even after widening
+  to 25 km, `plan_day` leaves that slot out rather than inventing one or using another kind.
+- Qloo's documentation describes `query.explainability` but shows no example; the reader is lenient, and without
+  it a stop's "why" names the fans of all the non-food tastes.
 - There is no language model in the loop. The MCP server is the agentic tool: any MCP client or agent can call it,
   and `plan_day` does the orchestration itself.
-- Slots are assigned by tag keywords (restaurant, cafe and food for lunch; bar, restaurant and music for the
-  evening), not by opening hours or travel time.
+- Slots follow Qloo's category tags and a straight-line radius from the first stop, not opening hours or travel
+  time. Popular places rank high for many tastes, so different tastes can share a first stop.
 
 ## Licence
 
