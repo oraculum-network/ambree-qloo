@@ -79,7 +79,7 @@ function toRanked(e: InsightsEntity, names: SignalNames, signalTags: Set<string>
     name: e.name,
     ...(town ? { town } : {}),
     affinity: Math.round(affinityOf(e) * 1000) / 1000,
-    tags: (e.tags ?? []).map((t) => t.name).slice(0, 6),
+    tags: (e.tags ?? []).flatMap((t) => (t.name ? [t.name] : [])).slice(0, 6),
     why,
     ...(e.properties?.geocode?.country_code ? {} : { location_unverified: true }),
   };

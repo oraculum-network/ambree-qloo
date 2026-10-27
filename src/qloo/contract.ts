@@ -1,91 +1,95 @@
-// The Qloo response contract: lenient zod schemas for the documented shapes of
-// GET /search, GET /v2/tags and GET /v2/insights (hackathon developer guide, the API
-// reference and its recipes). Objects are loose: unknown fields are kept, and only what
-// the tools read is required. Fields the docs name but never showed on a place
-// (address, lat/lon, price level) stay optional until a live smoke run confirms them.
+// The Qloo response contract: lenient zod schemas for GET /search, GET /v2/tags and
+// GET /v2/insights, matched to the live hackathon API on 27 Oct 2026. Objects are loose:
+// unknown fields are kept. Only what the tools read is required (the results lists,
+// entity_id and name, tag id and name); every other field may be missing or null, since
+// live places send `admin2_region: null` and /search sends no `success`.
 
 import { z } from "zod";
 
 const Geocode = z.looseObject({
-  name: z.string().optional(),
-  city: z.string().optional(),
-  country_code: z.string().optional(),
-  admin1_region: z.string().optional(),
-  admin2_region: z.string().optional(),
+  name: z.string().nullish(),
+  city: z.string().nullish(),
+  country_code: z.string().nullish(),
+  admin1_region: z.string().nullish(),
+  admin2_region: z.string().nullish(),
 });
 
 const Properties = z.looseObject({
-  geocode: Geocode.optional(),
+  geocode: Geocode.nullish(),
+  address: z.string().nullish(),
   // One recipe puts the score here instead of query.affinity.
-  affinity: z.number().optional(),
+  affinity: z.number().nullish(),
 });
 
 export const SearchEntity = z.looseObject({
   name: z.string(),
   entity_id: z.string(),
-  types: z.array(z.string()).optional(),
-  popularity: z.number().optional(),
-  properties: z.looseObject({}).optional(),
+  types: z.array(z.string()).nullish(),
+  popularity: z.number().nullish(),
+  properties: z.looseObject({}).nullish(),
 });
 
-/** GET /search: `results` is a flat array (not results.entities). */
+/** GET /search: `results` is a flat array (not results.entities). Live sends no `success`. */
 export const SearchResponse = z.looseObject({
-  success: z.boolean(),
+  success: z.boolean().optional(),
   results: z.array(SearchEntity),
 });
 
 export const Tag = z.looseObject({
   id: z.string(),
   name: z.string(),
-  type: z.string().optional(),
-  parents: z.array(z.looseObject({ type: z.string().optional() })).optional(),
-  popularity: z.number().optional(),
+  type: z.string().nullish(),
+  parents: z.array(z.looseObject({ type: z.string().nullish() })).nullish(),
+  popularity: z.number().nullish(),
 });
 
 /** GET /v2/tags: results.tags[] with id, name, type, parents[].type. */
 export const TagsResponse = z.looseObject({
-  success: z.boolean(),
+  success: z.boolean().optional(),
   results: z.looseObject({ tags: z.array(Tag) }),
 });
 
+/** A tag on an insights entity. A tag with no name is skipped by the tools, not a mismatch. */
 export const EntityTag = z.looseObject({
-  id: z.string().optional(),
-  tag_id: z.string().optional(),
-  name: z.string(),
-  type: z.string().optional(),
+  id: z.string().nullish(),
+  tag_id: z.string().nullish(),
+  name: z.string().nullish(),
+  type: z.string().nullish(),
 });
 
 /**
- * An insights entity. Two documented forms: type "urn:entity" + subtype + query.affinity,
- * or type "urn:entity:place" + properties.affinity. Both pass.
+ * An insights entity. Documented forms: type "urn:entity" + subtype + query.affinity, or
+ * type "urn:entity:place" + properties.affinity. Live sends `types` (an array) and may leave
+ * out the affinity. All pass; a missing score reads as 0.
  */
 export const InsightsEntity = z.looseObject({
   name: z.string(),
   entity_id: z.string(),
-  type: z.string().optional(),
-  subtype: z.string().optional(),
-  popularity: z.number().optional(),
-  properties: Properties.optional(),
-  tags: z.array(EntityTag).optional(),
+  type: z.string().nullish(),
+  types: z.array(z.string()).nullish(),
+  subtype: z.string().nullish(),
+  popularity: z.number().nullish(),
+  properties: Properties.nullish(),
+  tags: z.array(EntityTag).nullish(),
   query: z
     .looseObject({
-      affinity: z.number().optional(),
+      affinity: z.number().nullish(),
       explainability: z.unknown().optional(),
     })
-    .optional(),
+    .nullish(),
 });
 
 /** GET /v2/insights: results.entities[] (a 200 with an empty list is valid). */
 export const InsightsResponse = z.looseObject({
-  success: z.boolean(),
+  success: z.boolean().optional(),
   results: z.looseObject({ entities: z.array(InsightsEntity) }),
 });
 
 /** The documented error body (search and entities reference): all fields optional. */
 export const QlooErrorBody = z.looseObject({
-  code: z.number().optional(),
-  reason: z.string().optional(),
-  message: z.string().optional(),
+  code: z.number().nullish(),
+  reason: z.string().nullish(),
+  message: z.string().nullish(),
 });
 
 export type SearchResponse = z.infer<typeof SearchResponse>;
@@ -103,9 +107,9 @@ export function affinityOf(e: InsightsEntity): number {
   return e.query?.affinity ?? e.properties?.affinity ?? 0;
 }
 
-/** The town of a place: geocode.city, else geocode.name. */
+/** The town of a place: geocode.city, else geocode.name; undefined if both are missing, null or empty. */
 export function townOf(e: InsightsEntity): string | undefined {
-  return e.properties?.geocode?.city ?? e.properties?.geocode?.name;
+  return e.properties?.geocode?.city || e.properties?.geocode?.name || undefined;
 }
 
 /**

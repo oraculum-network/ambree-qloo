@@ -42,6 +42,42 @@ export function insightsBodyA(n = 2, country = "MU") {
   };
 }
 
+// The live shapes (27 Oct 2026): the keys the live API sent, with synthetic values.
+
+/** Live /search: top-level `results` only, no `success`. */
+export function liveSearchBody(names: string[] = ["Test Artist (demo)"], type = "urn:entity:artist") {
+  return { results: names.map((name, i) => ({ name, entity_id: id(700 + i), types: [type] })) };
+}
+
+/** Live /v2/tags: duration, success, results.tags. */
+export function liveTagsBody(n = 3) {
+  return { duration: 0.02, ...tagsBody(n) };
+}
+
+/**
+ * Live /v2/insights: success + results.entities with `types` and `subtype`, an address, a
+ * geocode whose regions are null, tags, and no query.affinity. Place 0 has a town; the rest
+ * have only a country code.
+ */
+export function liveInsightsBody(n = 5, country = "MU") {
+  return {
+    success: true,
+    results: {
+      entities: Array.from({ length: n }, (_, i) => ({
+        entity_id: id(600 + i),
+        name: `Live Shape Place ${i} (demo)`,
+        types: ["urn:entity:place"],
+        subtype: "urn:entity:place",
+        properties: {
+          address: `${i} Demo Road (demo)`,
+          geocode: { name: i === 0 ? "Port Louis" : null, city: null, country_code: country, admin1_region: null, admin2_region: null },
+        },
+        tags: [{ id: "urn:tag:demo:test_0", name: "Test tag 0 (demo)", type: "urn:tag:demo:place" }],
+      })),
+    },
+  };
+}
+
 /** Shape B: type "urn:entity:place" + properties.affinity. */
 export function insightsBodyB() {
   return {

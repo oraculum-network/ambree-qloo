@@ -1,8 +1,8 @@
 // The Qloo contract against hand-written bodies in each documented shape.
 
 import { describe, expect, it } from "vitest";
-import { InsightsResponse, QlooErrorBody, affinityOf, checkShape, explainedBy, townOf } from "../src/qloo/contract.ts";
-import { id, insightsBodyA, insightsBodyB, searchBody, tagsBody } from "./helpers/shapes.ts";
+import { InsightsResponse, QlooErrorBody, SearchResponse, affinityOf, checkShape, explainedBy, townOf } from "../src/qloo/contract.ts";
+import { id, insightsBodyA, insightsBodyB, liveInsightsBody, liveSearchBody, liveTagsBody, searchBody, tagsBody } from "./helpers/shapes.ts";
 
 describe("search", () => {
   it("search shape: flat results array passes", () => {
@@ -74,6 +74,61 @@ describe("tags", () => {
     const r = checkShape("tags", { success: true, results: { tags: [{ tag_id: "urn:tag:demo:x", name: "X (demo)", types: ["urn:entity:place"], subtype: "s" }] } });
     expect(r.ok).toBe(false);
     expect(r.mismatches).toEqual(["$.results.tags[0].id expected string, got missing"]);
+  });
+});
+
+describe("live shapes (27 Oct 2026, synthetic values)", () => {
+  it("/search with only `results` (no success) passes", () => {
+    const body = liveSearchBody(["A (demo)", "B (demo)"]);
+    expect(body).not.toHaveProperty("success");
+    expect(checkShape("search", body)).toEqual({ ok: true, mismatches: [] });
+    expect(SearchResponse.parse(body).results.map((r) => r.entity_id)).toEqual([id(700), id(701)]);
+  });
+
+  it("/v2/tags with duration, success, results passes", () => {
+    expect(checkShape("tags", liveTagsBody(3))).toEqual({ ok: true, mismatches: [] });
+  });
+
+  it("/v2/insights with null admin2_region, null regions, types and no query.affinity passes", () => {
+    const body = liveInsightsBody(5);
+    expect(body.results.entities.every((e) => e.properties.geocode.admin2_region === null)).toBe(true);
+    expect(checkShape("insights", body)).toEqual({ ok: true, mismatches: [] });
+    const [first, second] = InsightsResponse.parse(body).results.entities;
+    expect(first!.properties?.geocode?.country_code).toBe("MU");
+    expect(affinityOf(first!)).toBe(0);
+    expect(townOf(first!)).toBe("Port Louis");
+    expect(townOf(second!)).toBeUndefined();
+  });
+
+  it("success, geocode, properties, tags and query may each be missing or null", () => {
+    const base = liveInsightsBody(1).results.entities[0]!;
+    const variants = [
+      { ...base, properties: null, tags: null, query: null, type: null, subtype: null, popularity: null },
+      { ...base, properties: { geocode: null, address: null, affinity: null } },
+      { ...base, properties: { geocode: { name: null, city: null, country_code: null, admin1_region: null, admin2_region: null } } },
+      { ...base, tags: [{ id: null, tag_id: null, name: null, type: null }], query: { affinity: null } },
+      { name: base.name, entity_id: base.entity_id },
+    ];
+    for (const e of variants) expect(checkShape("insights", { results: { entities: [e] } }), JSON.stringify(e)).toEqual({ ok: true, mismatches: [] });
+    expect(checkShape("search", { results: [{ name: "X (demo)", entity_id: id(1), types: null, popularity: null, properties: null }] }).ok).toBe(true);
+    expect(checkShape("tags", { results: { tags: [{ id: "urn:tag:demo:x", name: "X (demo)", type: null, parents: null, popularity: null }] } }).ok).toBe(true);
+  });
+
+  it("an entity still needs its id and name", () => {
+    const body = liveInsightsBody(2);
+    (body.results.entities[0] as { entity_id: string | null }).entity_id = null;
+    delete (body.results.entities[1] as { name?: string }).name;
+    expect(checkShape("insights", body).mismatches).toEqual([
+      "$.results.entities[0].entity_id expected string, got null",
+      "$.results.entities[1].name expected string, got missing",
+    ]);
+    expect(checkShape("search", { results: [{ name: "X (demo)" }] }).mismatches).toEqual(["$.results[0].entity_id expected string, got missing"]);
+  });
+
+  it("townOf skips a null or empty city", () => {
+    expect(townOf({ name: "x", entity_id: id(1), properties: { geocode: { city: null, name: "Chamarel" } } })).toBe("Chamarel");
+    expect(townOf({ name: "x", entity_id: id(1), properties: { geocode: { city: "", name: null } } })).toBeUndefined();
+    expect(townOf({ name: "x", entity_id: id(1), properties: null })).toBeUndefined();
   });
 });
 
