@@ -6,7 +6,7 @@ import { PLACE_TYPE, insightsParams } from "../src/qloo/client.ts";
 import { InsightsResponse } from "../src/qloo/contract.ts";
 import { createDemoTransport } from "../src/qloo/fixtures.ts";
 import type { ToolOutcome } from "../src/tools/context.ts";
-import { type PlanDayOutput, planDay, planDayInput, planDayOutput } from "../src/tools/plan-day.ts";
+import { type PlanDayOutput, ordinal, planDay, planDayInput, planDayOutput } from "../src/tools/plan-day.ts";
 import { MU_BY_COUNTRY, MU_BY_LOCATION, MU_FILTER, rankIn, rankPlaces, rankPlacesInput } from "../src/tools/rank-places.ts";
 import { resolveTastes, resolveTastesInput } from "../src/tools/resolve-tastes.ts";
 import { sentences } from "../src/tools/speech.ts";
@@ -318,7 +318,7 @@ describe("plan_day", () => {
       const out = ok(await planDay(tastes(), liveDeps(mock)));
       const lunch = out.day.find((s) => s.slot === "lunch")!;
       expect(lunch.place).toBe("Steakhouse");
-      expect(lunch.why).toMatch(/No seafood place came up here, so this is the top restaurant\.$/);
+      expect(lunch.why).toMatch(/No seafood place came up nearby, so this is Qloo's top restaurant here\.$/);
     });
 
     it("with no music taste the evening is dinner in the same cuisine; with one it prefers live music", async () => {
@@ -486,16 +486,56 @@ describe("plan_day", () => {
     expect(out.day.map((s) => s.slot)).toEqual(["morning", "lunch", "evening"]);
   });
 
-  it("why names the contributing taste", async () => {
-    mock = await startQlooMock({
-      places: FULL_DAY.map((p) => ({ ...p, explain: [{ entity_id: "00000000-0000-4000-8000-000000000604", score: 1 }] })),
+  describe("a distinct, honest why per stop", () => {
+    const two = planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }, { kind: "film", name: "Some Film" }] });
+
+    it("names the fans of every taste, and the stop's rank in the list Qloo returned for its kind", async () => {
+      mock = await startQlooMock({ places: FULL_DAY });
+      const out = ok(await planDay(two, liveDeps(mock)));
+      expect(out.day.map((s) => s.why)).toEqual([
+        "Fans of Kaya and Some Film tend to like it: Qloo ranks it 1st of 2 things to do in Mauritius.",
+        "Fans of Kaya and Some Film tend to like it: it is the only restaurant Qloo returned in Mauritius.",
+        "Fans of Kaya and Some Film tend to like it: Qloo ranks it 2nd of 2 things to do in Mauritius.",
+        "Fans of Kaya and Some Film tend to like it: it is the only bar Qloo returned in Mauritius.",
+      ]);
     });
-    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
-    // The mock gives "Kaya" the ID id(600 + 4).
-    expect(out.signals[0]!.id).toBe("00000000-0000-4000-8000-000000000604");
-    expect(out.day[0]!.why).toBe("Because you like Kaya.");
-    const demo = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), demoDeps()));
-    expect(demo.day.every((s) => s.why.startsWith("Because you like Kaya."))).toBe(true);
+
+    it("the taste Qloo's explainability credits most is the one named", async () => {
+      // The mock gives "Kaya" the ID id(600 + 4) and "Some Film" id(600 + 9).
+      mock = await startQlooMock({
+        places: FULL_DAY.map((p, i) => ({
+          ...p,
+          explain: [
+            { entity_id: "00000000-0000-4000-8000-000000000604", score: i % 2 ? 0.3 : 0.7 },
+            { entity_id: "00000000-0000-4000-8000-000000000609", score: i % 2 ? 0.7 : 0.3 },
+          ],
+        })),
+      });
+      const out = ok(await planDay(two, liveDeps(mock)));
+      expect(out.day.map((s) => s.why.split(" tend")[0])).toEqual(["Fans of Kaya", "Fans of Some Film", "Fans of Kaya", "Fans of Some Film"]);
+    });
+
+    it("says when a meal is at a hotel; rank 2+ and ordinals read right", async () => {
+      expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].map(ordinal)).toEqual(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st", "111th"]);
+      mock = await startQlooMock({ places: [...FULL_DAY.slice(0, 3), { name: "Big Resort", country: "MU", ...RESORT, affinity: 0.99 }] });
+      const out = ok(await planDay(two, liveDeps(mock)));
+      expect(out.day.at(-1)!.why).toBe(
+        "Fans of Kaya and Some Film tend to like it: it is the only bar Qloo returned in Mauritius. It's a hotel's bar: no stand-alone place was left nearby.",
+      );
+    });
+
+    it("demo: the example plans give every stop its own why, with no 'Because you like'", async () => {
+      for (const tastes of [
+        [{ kind: "music", name: "Bob Marley" }, { kind: "food", name: "seafood" }, { kind: "film", name: "Life of Pi" }],
+        [{ kind: "music", name: "Miles Davis" }, { kind: "food", name: "cafe" }, { kind: "book", name: "Norwegian Wood" }],
+        [{ kind: "film", name: "Moana" }, { kind: "food", name: "street food" }, { kind: "music", name: "Jack Johnson" }],
+      ]) {
+        const out = ok(await planDay(planDayInput.parse({ tastes }), demoDeps()));
+        const whys = out.day.map((s) => s.why);
+        expect(new Set(whys).size, whys.join("\n")).toBe(whys.length);
+        for (const w of whys) expect(w).toMatch(/^Fans of .+ tend to like it: (Qloo ranks it \d+(st|nd|rd|th) of \d+ |it is the only )/);
+      }
+    });
   });
 
   it("a stop with no country code from Qloo keeps location_unverified", async () => {
@@ -594,13 +634,15 @@ describe("live shapes (27 Oct 2026, synthetic values)", () => {
       expect(s.location_unverified).toBeUndefined();
       expect(s.tags).toContain("Test tag 0 (demo)");
     }
-    // The food tag is a signal for the meals only; no place carries a seafood tag.
+    // No explainability: the fans are the non-food tastes. No place carries a seafood tag. The bar
+    // (genre restaurant:bar) is in both meal lists; the resort is in neither.
     expect(out.day.map((s) => s.why)).toEqual([
-      "A strong Qloo match for your tastes.",
-      "Because you like seafood. No seafood place came up here, so this is the top restaurant.",
-      "A strong Qloo match for your tastes.",
-      "Because you like seafood.",
+      "Fans of Bob Marley tend to like it: Qloo ranks it 1st of 2 things to do in Mauritius.",
+      "Fans of Bob Marley tend to like it: Qloo ranks it 1st of 2 restaurants within 15 km. No seafood place came up nearby, so this is Qloo's top restaurant here.",
+      "Fans of Bob Marley tend to like it: Qloo ranks it 2nd of 2 things to do in Mauritius.",
+      "Fans of Bob Marley tend to like it: Qloo ranks it 2nd of 2 bars within 15 km.",
     ]);
+    expect(out.area).toEqual({ around: "Port Louis", radius_km: 15 });
     expect(out.day[1]).not.toHaveProperty("town");
     expect(JSON.stringify(out)).not.toContain("null");
     expect(planDayOutput.parse(out)).toEqual(out);

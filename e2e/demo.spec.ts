@@ -59,7 +59,9 @@ test("chip → plan shows 4 day cards and speech with ≤2 sentences that mentio
   expect(sentences(speech).length).toBeLessThanOrEqual(2);
   expect(speech.length).toBeLessThanOrEqual(280);
   await expect(page.locator("#demo-banner")).toBeVisible();
-  await expect(page.locator("#day .card-why").first()).toContainText("Because you like");
+  await expect(page.locator("#day .card-why").first()).toContainText(/^Fans of .+ tend to like it: /);
+  const whys = await page.locator("#day .card-why").allTextContents();
+  expect(new Set(whys).size).toBe(whys.length);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: new URL("demo-desktop.png", SHOTS).pathname, fullPage: true, animations: "disabled" });
   await page.setViewportSize({ width: 360, height: 780 });

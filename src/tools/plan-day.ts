@@ -9,7 +9,7 @@
 import { z } from "zod";
 import { PLACE_TYPE, type QlooReply } from "../qloo/client.ts";
 import { distanceKm } from "../geo.ts";
-import { type InsightsEntity, affinityOf, pointOf } from "../qloo/contract.ts";
+import { type InsightsEntity, affinityOf, explainedBy, pointOf } from "../qloo/contract.ts";
 import { type ToolDeps, type ToolOutcome, modeOut, noticeOut, qlooCallsOut, qlooFailure, tastesInput } from "./context.ts";
 import { FILTER_TAGS, cuisineOf, cuisineTag, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, liveMusicTag } from "./places.ts";
 import { type Signal, type Unresolved, resolveAll, signalOut, unresolvedOut } from "./resolve-tastes.ts";
@@ -73,6 +73,10 @@ export interface Candidate {
   place: RankedPlace;
   pool: Pool;
   hotel: boolean;
+  /** Its place in that call's list (by Qloo affinity, after the kind and radius checks), of `of`, `scope`. */
+  rank: number;
+  of: number;
+  scope: string;
 }
 
 const POOL_FILTER: Record<Pool, string> = { things: FILTER_TAGS.thingsToDo, nearThings: FILTER_TAGS.thingsToDo, restaurants: FILTER_TAGS.restaurant, bars: FILTER_TAGS.bar };
@@ -100,14 +104,13 @@ function within(e: InsightsEntity, near: Near | undefined): boolean {
 async function fetchPool(reply: QlooReply, pool: Pool, signals: { entities: string[]; tags: string[] }, where: Where, names: SignalNames): Promise<Candidate[]> {
   const { entities } = await fetchInMU(reply, { type: PLACE_TYPE, ...signals, filterTags: [POOL_FILTER[pool]], ...where, take: PLAN_TAKE });
   const signalTags = new Set(signals.tags);
-  return (
-    entities
-      .filter(POOL_KEEPS[pool])
-      // Qloo may ignore a filter it doesn't apply, so the radius is checked here too.
-      .filter((e) => within(e, where.near))
-      .map((e) => ({ e, place: toRanked(e, names, signalTags), pool, hotel: isHotel(e) }))
-      .sort((a, b) => affinityOf(b.e) - affinityOf(a.e))
-  );
+  const list = entities
+    .filter(POOL_KEEPS[pool])
+    // Qloo may ignore a filter it doesn't apply, so the radius is checked here too.
+    .filter((e) => within(e, where.near))
+    .sort((a, b) => affinityOf(b) - affinityOf(a));
+  const scope = where.near ? `within ${Math.round(where.near.radiusM / 1000)} km` : where.town ? `in ${spokenName(where.town)}` : "in Mauritius";
+  return list.map((e, i) => ({ e, place: toRanked(e, names, signalTags), pool, hotel: isHotel(e), rank: i + 1, of: list.length, scope }));
 }
 
 /** Lexicographic: the first lower key wins. */
@@ -205,11 +208,34 @@ function kindOf(slot: Slot, c: Candidate): StopKind {
   return slot === "evening" && isBar(c.e) ? "bar" : "restaurant";
 }
 
-function whyFor({ c, match, missed }: Pick): string {
-  const names = c.place.why.slice(0, 2).map(spokenName);
-  let why = names.length ? `Because you like ${joinNames(names)}.` : "A strong Qloo match for your tastes.";
+const NOUN: Record<Pool, [one: string, many: string]> = {
+  things: ["thing to do", "things to do"],
+  nearThings: ["thing to do", "things to do"],
+  restaurants: ["restaurant", "restaurants"],
+  bars: ["bar", "bars"],
+};
+
+export function ordinal(n: number): string {
+  const teen = n % 100 >= 11 && n % 100 <= 13;
+  const suffix = teen ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
+  return `${n}${suffix}`;
+}
+
+/**
+ * Why Qloo suggests a stop, from what it returned for that place: whose fans tend to like
+ * it (the taste Qloo's explainability credits most, else all the tastes), its rank in the
+ * list it came from, and the tag that ties it to a food or music taste. Qloo describes what
+ * groups of people tend to like, so it never says what this traveller will enjoy.
+ */
+export function whyFor({ c, match, missed }: Pick, names: SignalNames, tastes: string[]): string {
+  const credited = explainedBy(c.e).flatMap((x) => names.get(x.id) ?? []);
+  const fans = (credited.length ? credited.slice(0, 1) : tastes.slice(0, 3)).map(spokenName);
+  const [one, many] = NOUN[c.pool];
+  const ranked = c.of === 1 ? `it is the only ${one} Qloo returned ${c.scope}` : `Qloo ranks it ${ordinal(c.rank)} of ${c.of} ${many} ${c.scope}`;
+  let why = fans.length ? `Fans of ${joinNames(fans)} tend to like it: ${ranked}.` : `${capitalise(ranked)}.`;
   if (match) why += match.food ? ` Tagged ${match.tag}, matching your ${match.food}.` : ` Tagged ${match.tag}.`;
-  if (missed) why += ` No ${missed} place came up here, so this is the top restaurant.`;
+  if (missed) why += ` No ${missed} place came up nearby, so this is Qloo's top restaurant here.`;
+  if (c.hotel) why += ` It's a hotel's ${c.pool === "bars" ? "bar" : "restaurant"}: no stand-alone place was left nearby.`;
   return why;
 }
 
@@ -232,6 +258,8 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
     if (signals.length) {
       const names: SignalNames = new Map(signals.map((s) => [s.id, s.input]));
       const entities = signals.filter((s) => s.source === "entity").map((s) => s.id);
+      // Whose fans a why names when Qloo credits no single taste: the artists, films and books, else the foods.
+      const fanOf = (entities.length ? signals.filter((s) => s.source === "entity") : signals).map((s) => s.input);
       const tags = signals.filter((s) => s.source === "tag").map((s) => s.id);
       const prefs: Prefs = {
         foods: signals.filter((s) => s.kind === "food").map((s) => ({ input: s.input, cuisine: cuisineOf(s.id) })),
@@ -284,7 +312,7 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
           ...(center && at && c !== first ? { km_from_start: Math.round(distanceKm(center, at) * 10) / 10 } : {}),
           affinity: c.place.affinity,
           tags: c.place.tags,
-          why: whyFor(pick),
+          why: whyFor(pick, names, fanOf),
           ...(c.place.location_unverified ? { location_unverified: true } : {}),
         };
       });
