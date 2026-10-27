@@ -284,6 +284,68 @@ describe("plan_day", () => {
     ]);
   });
 
+  describe("the food taste shapes the meals", () => {
+    const SEAFOOD_TAG = { id: "urn:tag:genre:place:restaurant:seafood", name: "Seafood", parents: [{ type: "urn:entity:place" }] };
+    const seafood = (affinity: number, name = "Fish Shack"): MockPlace => ({ name, country: "MU", ...RESTAURANT, tagIds: [...RESTAURANT.tagIds, "urn:tag:cuisine:qloo:seafood"], affinity });
+    const tastes = (more: Array<{ kind: string; name: string }> = []) => planDayInput.parse({ tastes: [{ kind: "film", name: "Some Film" }, { kind: "food", name: "seafood" }, ...more] });
+
+    it("lunch is the place tagged with the cuisine, even below a higher-scored restaurant; the food tag steers only the meal calls", async () => {
+      mock = await startQlooMock({
+        tags: [SEAFOOD_TAG],
+        places: [{ name: "Sight", country: "MU", ...SIGHT, affinity: 0.9 }, { name: "Steakhouse", country: "MU", ...RESTAURANT, affinity: 0.95 }, seafood(0.5)],
+      });
+      const out = ok(await planDay(tastes(), liveDeps(mock)));
+      const lunch = out.day.find((s) => s.slot === "lunch")!;
+      expect(lunch.place).toBe("Fish Shack");
+      expect(lunch.why).toContain("Tagged Seafood, matching your seafood.");
+      const byFilter = Object.fromEntries(insightsCalls(mock).map((q) => [q["filter.tags"], q["signal.interests.tags"]]));
+      expect(byFilter).toEqual({
+        [FILTER_TAGS.thingsToDo]: undefined,
+        [FILTER_TAGS.restaurant]: SEAFOOD_TAG.id,
+        [FILTER_TAGS.bar]: SEAFOOD_TAG.id,
+      });
+    });
+
+    it("a stand-alone restaurant still beats a hotel that serves the cuisine", async () => {
+      const hotelSeafood: MockPlace = { name: "Hotel Grill", country: "MU", genre: "urn:tag:genre:place:hotel", tagIds: [FILTER_TAGS.restaurant, "urn:tag:cuisine:qloo:seafood"], affinity: 0.99 };
+      mock = await startQlooMock({ tags: [SEAFOOD_TAG], places: [hotelSeafood, { name: "Steakhouse", country: "MU", ...RESTAURANT, affinity: 0.5 }] });
+      const out = ok(await planDay(tastes(), liveDeps(mock)));
+      expect(out.day.find((s) => s.slot === "lunch")!.place).toBe("Steakhouse");
+    });
+
+    it("no place serves the cuisine: lunch is the top restaurant, and the why says so", async () => {
+      mock = await startQlooMock({ tags: [SEAFOOD_TAG], places: [{ name: "Steakhouse", country: "MU", ...RESTAURANT, affinity: 0.7 }] });
+      const out = ok(await planDay(tastes(), liveDeps(mock)));
+      const lunch = out.day.find((s) => s.slot === "lunch")!;
+      expect(lunch.place).toBe("Steakhouse");
+      expect(lunch.why).toMatch(/No seafood place came up here, so this is the top restaurant\.$/);
+    });
+
+    it("with no music taste the evening is dinner in the same cuisine; with one it prefers live music", async () => {
+      const places: MockPlace[] = [
+        { name: "Sight", country: "MU", ...SIGHT, affinity: 0.9 },
+        seafood(0.8, "Fish Shack"),
+        seafood(0.6, "Crab House"),
+        { name: "Cocktail Bar", country: "MU", ...BAR, affinity: 0.95 },
+        { name: "Music Bar", country: "MU", ...BAR, tagIds: [...BAR.tagIds, "urn:tag:amenity:qloo:live_music"], affinity: 0.7 },
+      ];
+      mock = await startQlooMock({ tags: [SEAFOOD_TAG], places });
+      const dinner = ok(await planDay(tastes(), liveDeps(mock)));
+      expect(dinner.day.map((s) => [s.slot, s.kind, s.place])).toEqual([
+        ["morning", "thing_to_do", "Sight"],
+        ["lunch", "restaurant", "Fish Shack"],
+        ["evening", "restaurant", "Crab House"],
+      ]);
+      expect(dinner.day[2]!.why).toContain("Tagged Seafood, matching your seafood.");
+      const music = ok(await planDay(tastes([{ kind: "music", name: "Some Band" }]), liveDeps(mock)));
+      expect(music.day.at(-1)).toMatchObject({ slot: "evening", kind: "bar", place: "Music Bar" });
+      expect(music.day.at(-1)!.why).toContain("Tagged Live music.");
+      // Neither taste: the evening is the best bar.
+      const plain = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "film", name: "Some Film" }] }), liveDeps(mock)));
+      expect(plain.day.at(-1)).toMatchObject({ kind: "bar", place: "Cocktail Bar" });
+    });
+  });
+
   it("a slot with no place of its kind is left out, never filled with another kind", async () => {
     mock = await startQlooMock({ places: [0.9, 0.8, 0.7].map((a, i) => ({ name: `Sight ${i}`, country: "MU", ...SIGHT, affinity: a })) });
     const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), liveDeps(mock)));
@@ -318,7 +380,7 @@ describe("plan_day", () => {
     expect(out.signals[0]!.id).toBe("00000000-0000-4000-8000-000000000604");
     expect(out.day[0]!.why).toBe("Because you like Kaya.");
     const demo = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] }), demoDeps()));
-    expect(demo.day.every((s) => s.why === "Because you like Kaya.")).toBe(true);
+    expect(demo.day.every((s) => s.why.startsWith("Because you like Kaya."))).toBe(true);
   });
 
   it("a stop with no country code from Qloo keeps location_unverified", async () => {
@@ -416,8 +478,14 @@ describe("live shapes (27 Oct 2026, synthetic values)", () => {
       expect(s.affinity).toBe(0);
       expect(s.location_unverified).toBeUndefined();
       expect(s.tags).toContain("Test tag 0 (demo)");
-      expect(s.why).toBe("Because you like seafood.");
     }
+    // The food tag is a signal for the meals only; no place carries a seafood tag.
+    expect(out.day.map((s) => s.why)).toEqual([
+      "A strong Qloo match for your tastes.",
+      "Because you like seafood. No seafood place came up here, so this is the top restaurant.",
+      "A strong Qloo match for your tastes.",
+      "Because you like seafood.",
+    ]);
     expect(out.day[1]).not.toHaveProperty("town");
     expect(JSON.stringify(out)).not.toContain("null");
     expect(planDayOutput.parse(out)).toEqual(out);

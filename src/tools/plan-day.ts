@@ -8,7 +8,7 @@ import { z } from "zod";
 import { PLACE_TYPE, type QlooReply } from "../qloo/client.ts";
 import { type InsightsEntity, affinityOf } from "../qloo/contract.ts";
 import { type ToolDeps, type ToolOutcome, modeOut, noticeOut, qlooCallsOut, qlooFailure, tastesInput } from "./context.ts";
-import { FILTER_TAGS, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo } from "./places.ts";
+import { FILTER_TAGS, cuisineOf, cuisineTag, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, liveMusicTag } from "./places.ts";
 import { type Signal, type Unresolved, resolveAll, signalOut, unresolvedOut } from "./resolve-tastes.ts";
 import { type RankedPlace, type SignalNames, fetchInMU, toRanked } from "./rank-places.ts";
 import { capitalise, joinNames, speak, spokenName } from "./speech.ts";
@@ -90,25 +90,81 @@ function byKeys<T>(key: (x: T) => number[]) {
   };
 }
 
-/** The candidates for a slot, best first. */
-export function rankForSlot(slot: Slot, pools: Record<Pool, Candidate[]>): Candidate[] {
+/** What the traveller asked for that shapes the meals and the evening. */
+export interface Prefs {
+  /** Food tastes, each with the cuisine its Qloo tag names. */
+  foods: Array<{ input: string; cuisine: string }>;
+  /** A music taste: the evening prefers a place tagged for live music. */
+  music: boolean;
+}
+
+/** The tag that ties a stop to one of the tastes: a cuisine at a meal, live music at night. */
+export interface Match {
+  tag: string;
+  /** The food taste it matches; unset for live music. */
+  food?: string;
+}
+
+export interface Pick {
+  slot: Slot;
+  c: Candidate;
+  match?: Match;
+  /** A food taste no place in the pool served (the meal fell back to the best restaurant). */
+  missed?: string;
+}
+
+function cuisineMatch(c: Candidate, prefs: Prefs): Match | undefined {
+  for (const f of prefs.foods) {
+    const t = cuisineTag(c.e, f.cuisine);
+    if (t) return { tag: t.name, food: f.input };
+  }
+  return undefined;
+}
+
+function musicMatch(c: Candidate): Match | undefined {
+  const t = liveMusicTag(c.e);
+  return t && { tag: t.name };
+}
+
+/** Evening: live music for a music taste; else dinner in the food taste's cuisine; else a bar. */
+function eveningMatch(c: Candidate, prefs: Prefs): Match | undefined {
+  if (prefs.music) return musicMatch(c);
+  return prefs.foods.length ? cuisineMatch(c, prefs) : undefined;
+}
+
+/** The candidates for a slot, best first. Stand-alone places always come before hotels. */
+export function rankForSlot(slot: Slot, pools: Record<Pool, Candidate[]>, prefs: Prefs): Candidate[] {
   const aff = (c: Candidate) => -affinityOf(c.e);
   if (slot === "morning" || slot === "afternoon") return pools.things;
-  if (slot === "lunch") return [...pools.restaurants].sort(byKeys((c) => [c.hotel ? 1 : 0, isMainlyBar(c.e) ? 1 : 0, aff(c)]));
+  if (slot === "lunch") {
+    return [...pools.restaurants].sort(byKeys((c) => [c.hotel ? 1 : 0, cuisineMatch(c, prefs) ? 0 : 1, isMainlyBar(c.e) ? 1 : 0, aff(c)]));
+  }
   const seen = new Set<string>();
   const both = [...pools.bars, ...pools.restaurants].filter((c) => !seen.has(c.place.id) && seen.add(c.place.id));
-  return both.sort(byKeys((c) => [c.hotel ? 1 : 0, isBar(c.e) ? 0 : 1, aff(c)]));
+  // With no music taste the evening is dinner, so a bar has no head start over a restaurant.
+  const barFirst = prefs.music || !prefs.foods.length;
+  return both.sort(byKeys((c) => [c.hotel ? 1 : 0, eveningMatch(c, prefs) ? 0 : 1, barFirst && !isBar(c.e) ? 1 : 0, aff(c)]));
 }
 
 /** Fill the slots in order from the pools, never using a place twice. A slot with no candidate is left out. */
-export function fillSlots(slots: readonly Slot[], pools: Record<Pool, Candidate[]>): Array<{ slot: Slot; c: Candidate }> {
+export function fillSlots(slots: readonly Slot[], pools: Record<Pool, Candidate[]>, prefs: Prefs): Pick[] {
   const used = new Set<string>();
-  const out: Array<{ slot: Slot; c: Candidate }> = [];
+  const out: Pick[] = [];
   for (const slot of slots) {
-    const c = rankForSlot(slot, pools).find((x) => !used.has(x.place.id));
+    const c = rankForSlot(slot, pools, prefs).find((x) => !used.has(x.place.id));
     if (!c) continue;
     used.add(c.place.id);
-    out.push({ slot, c });
+    const pick: Pick = { slot, c };
+    if (slot === "lunch") {
+      const m = cuisineMatch(c, prefs);
+      if (m) pick.match = m;
+      else if (prefs.foods.length) pick.missed = prefs.foods[0]!.input;
+    }
+    if (slot === "evening") {
+      const m = eveningMatch(c, prefs);
+      if (m) pick.match = m;
+    }
+    out.push(pick);
   }
   return out;
 }
@@ -118,9 +174,12 @@ function kindOf(slot: Slot, c: Candidate): StopKind {
   return slot === "evening" && isBar(c.e) ? "bar" : "restaurant";
 }
 
-function whyFor(place: RankedPlace): string {
-  const names = place.why.slice(0, 2).map(spokenName);
-  return names.length ? `Because you like ${joinNames(names)}.` : "A strong Qloo match for your tastes.";
+function whyFor({ c, match, missed }: Pick): string {
+  const names = c.place.why.slice(0, 2).map(spokenName);
+  let why = names.length ? `Because you like ${joinNames(names)}.` : "A strong Qloo match for your tastes.";
+  if (match) why += match.food ? ` Tagged ${match.tag}, matching your ${match.food}.` : ` Tagged ${match.tag}.`;
+  if (missed) why += ` No ${missed} place came up here, so this is the top restaurant.`;
+  return why;
 }
 
 const SLOT_SPOKEN: Record<Slot, (name: string) => string> = {
@@ -140,24 +199,34 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
     ({ signals, unresolved } = await resolveAll(reply, args.tastes, deps.log));
     if (signals.length) {
       const names: SignalNames = new Map(signals.map((s) => [s.id, s.input]));
-      const sig = {
-        entities: signals.filter((s) => s.source === "entity").map((s) => s.id),
-        tags: signals.filter((s) => s.source === "tag").map((s) => s.id),
+      const entities = signals.filter((s) => s.source === "entity").map((s) => s.id);
+      const tags = signals.filter((s) => s.source === "tag").map((s) => s.id);
+      const prefs: Prefs = {
+        foods: signals.filter((s) => s.kind === "food").map((s) => ({ input: s.input, cuisine: cuisineOf(s.id) })),
+        music: signals.some((s) => s.kind === "music"),
       };
-      const [things, restaurants, bars] = await Promise.all(
-        (["things", "restaurants", "bars"] as const).map((pool) => fetchPool(reply, pool, sig, args.town, names)),
-      );
-      day = fillSlots(slots, { things: things!, restaurants: restaurants!, bars: bars! }).map(({ slot, c }) => ({
-        slot,
-        kind: kindOf(slot, c),
-        place: c.place.name,
-        place_id: c.place.id,
-        ...(c.place.town ? { town: c.place.town } : {}),
-        affinity: c.place.affinity,
-        tags: c.place.tags,
-        why: whyFor(c.place),
-        ...(c.place.location_unverified ? { location_unverified: true } : {}),
-      }));
+      // The food tags steer the meal calls only; sights follow the other tastes when there are any.
+      const mealSig = { entities, tags };
+      const thingsSig = entities.length ? { entities, tags: [] } : mealSig;
+      const [things, restaurants, bars] = await Promise.all([
+        fetchPool(reply, "things", thingsSig, args.town, names),
+        fetchPool(reply, "restaurants", mealSig, args.town, names),
+        fetchPool(reply, "bars", mealSig, args.town, names),
+      ]);
+      day = fillSlots(slots, { things, restaurants, bars }, prefs).map((pick) => {
+        const { slot, c } = pick;
+        return {
+          slot,
+          kind: kindOf(slot, c),
+          place: c.place.name,
+          place_id: c.place.id,
+          ...(c.place.town ? { town: c.place.town } : {}),
+          affinity: c.place.affinity,
+          tags: c.place.tags,
+          why: whyFor(pick),
+          ...(c.place.location_unverified ? { location_unverified: true } : {}),
+        };
+      });
     }
   } catch (e) {
     return qlooFailure(e, deps.log);

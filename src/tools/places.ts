@@ -77,6 +77,46 @@ export function isMainlyBar(e: InsightsEntity): boolean {
   return g ? g === BAR_GENRE : isBar(e) && !isRestaurant(e);
 }
 
+/**
+ * The cuisine in a food tag ID: its last part. /v2/tags answers "seafood" with
+ * urn:tag:genre:place:restaurant:seafood, "street food" with urn:tag:cuisine:qloo:street_food
+ * and "cafe" with urn:tag:genre:place:restaurant:cafe.
+ */
+export function cuisineOf(foodTagId: string): string {
+  return foodTagId.split(":").pop() ?? "";
+}
+
+/**
+ * The tag on a place that says it serves this cuisine, if any. Live places mostly carry
+ * urn:tag:cuisine:qloo:<cuisine> (26 places for seafood, against 2 with the restaurant genre).
+ */
+export function cuisineTag(e: InsightsEntity, cuisine: string): { id: string; name: string } | undefined {
+  if (!cuisine) return undefined;
+  const ids = new Set([
+    `urn:tag:cuisine:qloo:${cuisine}`,
+    `urn:tag:genre:place:restaurant:${cuisine}`,
+    `urn:tag:category:place:${cuisine}`,
+    `urn:tag:category:place:${cuisine}_restaurant`,
+    `urn:tag:culinary_style:qloo:${cuisine}`,
+    `urn:tag:specialty_dish:place:${cuisine}`,
+  ]);
+  for (const t of e.tags ?? []) {
+    const id = t.id ?? t.tag_id;
+    if (id && ids.has(id) && t.name) return { id, name: t.name };
+  }
+  return undefined;
+}
+
+/** The live-music tag on a place (amenity, good_for, ambience, a live music bar or venue), if any. */
+export function liveMusicTag(e: InsightsEntity): { id: string; name: string } | undefined {
+  for (const t of e.tags ?? []) {
+    const id = t.id ?? t.tag_id;
+    if (id && t.name && /:live_music(_bar|_venue)?$/.test(id)) return { id, name: t.name };
+  }
+  // Some live places say it only as properties.live_music: true.
+  return e.properties?.live_music === true ? { id: "properties.live_music", name: "Live music" } : undefined;
+}
+
 /** Something to do between meals: not a hotel, and not mainly a place to eat or drink. */
 export function isThingToDo(e: InsightsEntity): boolean {
   if (isHotel(e)) return false;

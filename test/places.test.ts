@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { InsightsEntity } from "../src/qloo/contract.ts";
-import { FILTER_TAGS, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, primaryGenre } from "../src/tools/places.ts";
+import { FILTER_TAGS, cuisineOf, cuisineTag, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, liveMusicTag, primaryGenre } from "../src/tools/places.ts";
 import { id } from "./helpers/shapes.ts";
 
 function place(genre: string | undefined, tagIds: string[] = []): InsightsEntity {
@@ -59,6 +59,31 @@ describe("places", () => {
     }
     // A sight with a restaurant on site (an amenity tag) stays a sight.
     expect(isThingToDo(place("urn:tag:genre:place:tourist_attraction", ["urn:tag:amenities:place:restaurant"]))).toBe(true);
+  });
+
+  it("a food tag's cuisine matches the cuisine tags places carry", () => {
+    // What /v2/tags answered first for each example food word.
+    expect(cuisineOf("urn:tag:genre:place:restaurant:seafood")).toBe("seafood");
+    expect(cuisineOf("urn:tag:cuisine:qloo:street_food")).toBe("street_food");
+    expect(cuisineOf("urn:tag:genre:place:restaurant:cafe")).toBe("cafe");
+    const r = (ids: string[]) => place("urn:tag:genre:place:restaurant", ids);
+    expect(cuisineTag(r(["urn:tag:cuisine:qloo:seafood"]), "seafood")?.id).toBe("urn:tag:cuisine:qloo:seafood");
+    expect(cuisineTag(r(["urn:tag:category:place:seafood_restaurant"]), "seafood")?.id).toBe("urn:tag:category:place:seafood_restaurant");
+    expect(cuisineTag(r(["urn:tag:genre:place:restaurant:street_food"]), "street_food")).toBeDefined();
+    expect(cuisineTag(r(["urn:tag:category:place:cafe"]), "cafe")).toBeDefined();
+    // Not a near miss: a seafood market, a seafood-themed menu item, or another cuisine.
+    expect(cuisineTag(r(["urn:tag:menu_highlight:qloo:seafood_platter", "urn:tag:cuisine:qloo:mauritian"]), "seafood")).toBeUndefined();
+    expect(cuisineTag(r(["urn:tag:cuisine:qloo:seafood"]), "")).toBeUndefined();
+  });
+
+  it("live music: a live-music tag of any type, or properties.live_music true", () => {
+    for (const t of ["urn:tag:amenity:qloo:live_music", "urn:tag:good_for:qloo:live_music", "urn:tag:category:place:live_music_bar", "urn:tag:genre:place:live_music_venue"]) {
+      expect(liveMusicTag(place("urn:tag:genre:place:restaurant:bar", [t]))?.id, t).toBe(t);
+    }
+    expect(liveMusicTag(place("urn:tag:genre:place:restaurant:bar", ["urn:tag:interests:qloo:music_festivals"]))).toBeUndefined();
+    const flagged = { ...place("urn:tag:genre:place:restaurant:bar"), properties: { live_music: true } };
+    expect(liveMusicTag(flagged)?.name).toBe("Live music");
+    expect(liveMusicTag({ ...flagged, properties: { live_music: null } })).toBeUndefined();
   });
 
   it("with no primary genre, the tags decide", () => {
