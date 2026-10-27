@@ -464,6 +464,85 @@ describe("plan_day", () => {
     });
   });
 
+  describe("things to do follow the tastes' Qloo tags", () => {
+    const WEST = { lat: -20.29, lon: 57.36 };
+    const near = (dLat: number) => ({ lat: WEST.lat + dLat, lon: WEST.lon });
+    const sight = (name: string, affinity: number, tags: string[], extra: Partial<MockPlace> = {}): MockPlace => ({ name, country: "MU", ...SIGHT, ...WEST, tags, affinity, ...extra });
+    const meals: MockPlace[] = [
+      { name: "Grill", country: "MU", ...RESTAURANT, ...WEST, affinity: 0.5 },
+      { name: "Bar", country: "MU", ...BAR, ...WEST, affinity: 0.5 },
+    ];
+    const film = planDayInput.parse({ tastes: [{ kind: "film", name: "Sea Film" }] });
+
+    it("the morning is the sight whose tags echo the tastes', not Qloo's first; the why and the card say which", async () => {
+      mock = await startQlooMock({
+        searchTags: { "Sea Film": ["Swimming underwater", "Castaway", "Nature"] },
+        places: [sight("Top Fort", 0.9, ["Fortress", "Nature"]), sight("Reef Cove", 0.6, ["Snorkeling", "Nature"]), sight("Old Mill", 0.7, ["Heritage"]), ...meals],
+      });
+      const out = ok(await planDay(film, liveDeps(mock)));
+      expect(out.day[0]).toMatchObject({ slot: "morning", kind: "thing_to_do", place: "Reef Cove" });
+      expect(out.day[0]!.tags[0]).toBe("Snorkeling");
+      expect(out.day[0]!.why).toBe(
+        "Fans of Sea Film tend to like it: Qloo ranks it 3rd of 3 things to do in Mauritius. Its Qloo tags echo your tastes: Snorkeling (Sea Film: Swimming underwater).",
+      );
+      // The afternoon has no link left: Qloo's order decides it. Still one Insights call per kind, no extra calls.
+      expect(out.day.find((s) => s.slot === "afternoon")!.place).toBe("Top Fort");
+      expect(out.qloo_calls.map((c) => c.endpoint)).toEqual(["/search", "/v2/insights", "/v2/insights", "/v2/insights"]);
+    });
+
+    it("a shared tag name counts too: 'also on' the taste", async () => {
+      mock = await startQlooMock({
+        searchTags: { "Sea Film": ["Romantic"] },
+        places: [sight("Top Fort", 0.9, ["Fortress"]), sight("Love Bay", 0.5, ["Romantic"]), sight("Mill", 0.6, ["Heritage"]), ...meals],
+      });
+      const out = ok(await planDay(film, liveDeps(mock)));
+      expect(out.day[0]!.place).toBe("Love Bay");
+      expect(out.day[0]!.why).toContain("Its Qloo tags echo your tastes: Romantic (also on Sea Film).");
+    });
+
+    it("a food taste draws the day to a market; a music taste to live music", async () => {
+      const places = [sight("Top Fort", 0.9, ["Fortress"]), sight("Town Market", 0.5, ["Market stalls"]), sight("Music Square", 0.4, ["Live music"]), ...meals];
+      mock = await startQlooMock({ tags: [{ id: "urn:tag:cuisine:qloo:street_food", name: "Street food", parents: [{ type: "urn:entity:place" }] }], places });
+      const food = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "film", name: "A Film" }, { kind: "food", name: "street food" }] }), liveDeps(mock)));
+      expect(food.day[0]!.place).toBe("Town Market");
+      expect(food.day[0]!.why).toContain("Its Qloo tags echo your tastes: Market stalls (your street food).");
+      const music = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "A Band" }] }), liveDeps(mock)));
+      expect(music.day[0]!.place).toBe("Music Square");
+      expect(music.day[0]!.why).toContain("Live music (A Band)");
+    });
+
+    it("no tag in common: Qloo's order, as before", async () => {
+      mock = await startQlooMock({ searchTags: { "Sea Film": ["Castaway"] }, places: [sight("Top Fort", 0.9, ["Fortress"]), sight("Reef Cove", 0.6, ["Hiking"]), ...meals] });
+      const out = ok(await planDay(film, liveDeps(mock)));
+      expect(out.day.filter((s) => s.kind === "thing_to_do").map((s) => s.place)).toEqual(["Top Fort", "Reef Cove"]);
+      expect(out.day[0]!.why).not.toContain("echo");
+    });
+
+    it("ties go to variety: the afternoon avoids the morning's genre, and a link the morning showed counts half", async () => {
+      const BEACH = "urn:tag:genre:place:beach";
+      const FOREST = "urn:tag:genre:place:nature_preserve";
+      mock = await startQlooMock({
+        searchTags: { "Sea Film": ["Ocean", "Forest imagery"] },
+        places: [
+          sight("Reef Cove", 0.9, ["Snorkeling"], { genre: BEACH }),
+          sight("Second Beach", 0.8, ["Swimming"], { genre: BEACH, ...near(0.02) }),
+          sight("Rain Forest", 0.6, ["Hiking"], { genre: FOREST, ...near(0.03) }),
+          sight("Car Park", 0.7, ["Parking"], near(0.01)),
+          sight("Car Park 2", 0.65, ["Parking"], near(0.01)),
+          ...meals,
+        ],
+      });
+      const out = ok(await planDay(film, liveDeps(mock)));
+      expect(out.day.filter((s) => s.kind === "thing_to_do").map((s) => s.place)).toEqual(["Reef Cove", "Rain Forest"]);
+    });
+
+    it("resolve_tastes never reports the taste's tags", async () => {
+      mock = await startQlooMock({ searchTags: { "Sea Film": ["Castaway"] } });
+      const out = ok(await resolveTastes(resolveTastesInput.parse({ tastes: [{ kind: "film", name: "Sea Film" }] }), liveDeps(mock)));
+      expect(JSON.stringify(out)).not.toContain("Castaway");
+    });
+  });
+
   describe("at most 10 Qloo calls a plan", () => {
     // One sight in the west and nothing else nearby: every optional call is wanted.
     const lonely: MockPlace[] = [

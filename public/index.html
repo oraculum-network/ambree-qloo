@@ -82,7 +82,7 @@
           <span class="label">Under the hood</span>
           <span class="hood-sub">MCP and Qloo calls</span>
         </summary>
-        <p class="hood-intro">This page speaks JSON-RPC to the planner's MCP server at <code>/mcp</code> (Streamable HTTP, spec 2025-11-25). The server calls Qloo: <code>/search</code> and <code>/v2/tags</code> to resolve your tastes, then <code>/v2/insights</code> once per kind of stop (things to do, restaurants, bars), the later calls within 15 km of the first stop.</p>
+        <p class="hood-intro">This page speaks JSON-RPC to the planner's MCP server at <code>/mcp</code> (Streamable HTTP, spec 2025-11-25). The server calls Qloo: <code>/search</code> and <code>/v2/tags</code> to resolve your tastes, then <code>/v2/insights</code> once per kind of stop (things to do, restaurants, bars), the later calls within 15 km of the first stop. The things to do are the ones whose Qloo tags best echo the tags <code>/search</code> gave your tastes.</p>
         <ol id="turns" class="turns"></ol>
         <p id="hood-empty" class="hood-empty">Plan a day to see the calls.</p>
       </details>

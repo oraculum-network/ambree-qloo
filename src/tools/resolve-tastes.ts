@@ -46,17 +46,24 @@ export type ResolveTastesOutput = z.infer<typeof resolveTastesOutput>;
 
 const PLACE = "urn:entity:place";
 
-async function resolveOne(reply: QlooReply, t: Taste, log: Logger): Promise<Signal | undefined> {
+/** A signal and, for an entity, the names of the tags Qloo gave it (kept out of the tool outputs). */
+interface Resolved {
+  signal: Signal;
+  tags: string[];
+}
+
+async function resolveOne(reply: QlooReply, t: Taste, log: Logger): Promise<Resolved | undefined> {
   try {
     if (t.kind === "food") {
       const { results } = await reply.tags(t.name, 5);
       // A food tag is useful only if it can describe a place (parents name urn:entity:place).
       const tag = results.tags.find((x) => !x.parents || x.parents.some((p) => p.type === PLACE));
-      return tag && { input: t.name, kind: t.kind, id: tag.id, name: tag.name, source: "tag" };
+      return tag && { signal: { input: t.name, kind: t.kind, id: tag.id, name: tag.name, source: "tag" }, tags: [] };
     }
     const { results } = await reply.search(t.name, SEARCH_TYPES[t.kind], 1);
     const hit = results[0];
-    return hit && { input: t.name, kind: t.kind, id: hit.entity_id, name: hit.name, source: "entity" };
+    const tags = (hit?.tags ?? []).flatMap((x) => (x.name ? [x.name] : []));
+    return hit && { signal: { input: t.name, kind: t.kind, id: hit.entity_id, name: hit.name, source: "entity" }, tags };
   } catch (e) {
     if (!isNoMatch(e)) throw e;
     // The type and status only, never the taste: a 403 here is an entity type the key may not use.
@@ -66,21 +73,28 @@ async function resolveOne(reply: QlooReply, t: Taste, log: Logger): Promise<Sign
   }
 }
 
-/** Resolve every taste (in parallel); throws a QlooError only for a failure that isn't "no match". */
-export async function resolveAll(reply: QlooReply, tastes: Taste[], log: Logger): Promise<{ signals: Signal[]; unresolved: Unresolved[] }> {
+/**
+ * Resolve every taste (in parallel); throws a QlooError only for a failure that isn't "no match".
+ * `tagsOf` maps an entity signal's ID to its Qloo tag names.
+ */
+export async function resolveAll(reply: QlooReply, tastes: Taste[], log: Logger): Promise<{ signals: Signal[]; unresolved: Unresolved[]; tagsOf: Map<string, string[]> }> {
   const found = await Promise.all(tastes.map((t) => resolveOne(reply, t, log)));
   const signals: Signal[] = [];
   const unresolved: Unresolved[] = [];
-  found.forEach((s, i) => {
-    if (s) signals.push(s);
-    else unresolved.push({ input: tastes[i]!.name, kind: tastes[i]!.kind });
+  const tagsOf = new Map<string, string[]>();
+  found.forEach((r, i) => {
+    if (r) {
+      signals.push(r.signal);
+      if (r.tags.length) tagsOf.set(r.signal.id, r.tags);
+    } else unresolved.push({ input: tastes[i]!.name, kind: tastes[i]!.kind });
   });
-  return { signals, unresolved };
+  return { signals, unresolved, tagsOf };
 }
 
 export async function resolveTastes(args: ResolveTastesInput, deps: ToolDeps): Promise<ToolOutcome<ResolveTastesOutput>> {
   const reply = deps.qloo.reply(deps.client);
   let got: { signals: Signal[]; unresolved: Unresolved[] };
+  // The tag names stay internal: resolve_tastes reports the signals only.
   try {
     got = await resolveAll(reply, args.tastes, deps.log);
   } catch (e) {

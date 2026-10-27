@@ -31,9 +31,14 @@ affinity for the traveller's own signals (`signal.interests.entities` from `/sea
 `/v2/tags`, the food tag on the meal calls only). Qloo's tags decide what each place is: `filter.tags` asks for
 things to do (`urn:tag:category:place:tourist_attraction`), restaurants (`urn:tag:genre:place:restaurant`) and bars
 (`urn:tag:category:place:bar`); `properties.primary_genre` keeps hotels out of the sights; a cuisine tag such as
-`urn:tag:cuisine:qloo:seafood` picks lunch. Qloo's `filter.location` keeps the day within 15 km of the first stop.
-Each stop's "why" is built from what Qloo returned for it: whose fans tend to like it (the taste Qloo's
-`feature.explainability` credits most, when it sends one), its rank in that list, and the tag that matched a taste.
+`urn:tag:cuisine:qloo:seafood` picks lunch. The things to do are the ones whose Qloo tags best echo the tags Qloo's
+`/search` gives the tastes themselves: a film tagged "Swimming underwater" leans to a place tagged "Snorkeling", an
+artist tagged "Spiritual" to one tagged "Meditation", a book tagged "Nostalgic" to a place tagged the same. Media and
+place tags meet through ten themes (`src/tools/fit.ts`) and any shared name, and a tag carried by few of the places
+Qloo returned counts more than one on all of them. Qloo's order breaks ties. Qloo's `filter.location` keeps the
+day within 15 km of the first stop. Each stop's "why" is built from what Qloo returned for it: whose fans tend to
+like it (the taste Qloo's `feature.explainability` credits most, when it sends one), its rank in that list, and the
+tags that tie it to a taste.
 Without a key the app does not pretend: it switches to clearly labelled synthetic demo data.
 
 ## Run it locally (no key needed)
@@ -160,7 +165,10 @@ deploy/                k8s manifests and the key-storing script; see DEPLOY.md
 - There is no language model in the loop. The MCP server is the agentic tool: any MCP client or agent can call it,
   and `plan_day` does the orchestration itself.
 - Slots follow Qloo's category tags and a straight-line radius from the first stop, not opening hours or travel
-  time. Popular places rank high for many tastes, so different tastes can share a first stop.
+  time. Popular places rank high for many tastes, so tastes whose Qloo tags meet no place's tags (or no tags at
+  all, as in demo mode) can share a first stop.
+- The ten themes that bridge media tags and place tags are a hand-written word list: they read "Crab" in a film as a
+  story detail, not a love of animals, but a taste whose tags fall outside them only links by shared names.
 
 ## Licence
 

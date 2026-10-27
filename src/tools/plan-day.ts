@@ -2,16 +2,18 @@
 // Qloo Insights call per kind of stop (things to do, restaurants, bars; see places.ts) ->
 // a day of 3 or 4 stops: morning and afternoon are things to do, lunch a restaurant, the
 // evening a bar or restaurant. A hotel is never a sight; for a meal it comes after every
-// stand-alone place. No place is used twice. The first stop is the best thing to do on the
-// island; every later call asks Qloo for places within REGION_KM of it (filter.location),
-// widened once to WIDE_KM when a slot would be empty.
+// stand-alone place. No place is used twice. The things to do are the ones whose Qloo tags
+// best echo the tastes' own Qloo tags (fit.ts), Qloo's order breaking ties. The first stop
+// is the best of them on the island; every later call asks Qloo for places within
+// REGION_KM of it (filter.location), widened once to WIDE_KM when a slot would be empty.
 
 import { z } from "zod";
 import { PLACE_TYPE, type QlooReply } from "../qloo/client.ts";
 import { distanceKm } from "../geo.ts";
 import { type InsightsEntity, affinityOf, explainedBy, pointOf } from "../qloo/contract.ts";
 import { type ToolDeps, type ToolOutcome, modeOut, noticeOut, qlooCallsOut, qlooFailure, tastesInput } from "./context.ts";
-import { FILTER_TAGS, cuisineOf, cuisineTag, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, liveMusicTag, tellingTags } from "./places.ts";
+import { type Fit, type Link, type Profile, fitAll, fitOf, profileOf } from "./fit.ts";
+import { FILTER_TAGS, cuisineOf, cuisineTag, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, liveMusicTag, primaryGenre, tellingTags } from "./places.ts";
 import { type Signal, type Unresolved, resolveAll, signalOut, unresolvedOut } from "./resolve-tastes.ts";
 import { type RankedPlace, type SignalNames, fetchInMU, toRanked } from "./rank-places.ts";
 import { capitalise, joinNames, speak, spokenName } from "./speech.ts";
@@ -83,6 +85,8 @@ export interface Candidate {
   rank: number;
   of: number;
   scope: string;
+  /** How well its tags echo the tastes' tags, within that list (fit.ts). */
+  fit: Fit;
 }
 
 const POOL_FILTER: Record<Pool, string> = { things: FILTER_TAGS.thingsToDo, nearThings: FILTER_TAGS.thingsToDo, restaurants: FILTER_TAGS.restaurant, bars: FILTER_TAGS.bar };
@@ -107,7 +111,7 @@ function within(e: InsightsEntity, near: Near | undefined): boolean {
 }
 
 /** One Insights call for a pool; places that don't fit it are dropped; best affinity first (Qloo's order on ties). */
-async function fetchPool(reply: QlooReply, pool: Pool, signals: { entities: string[]; tags: string[] }, where: Where, names: SignalNames): Promise<Candidate[]> {
+async function fetchPool(reply: QlooReply, pool: Pool, signals: { entities: string[]; tags: string[] }, where: Where, names: SignalNames, profile: Profile): Promise<Candidate[]> {
   const { entities } = await fetchInMU(reply, { type: PLACE_TYPE, ...signals, filterTags: [POOL_FILTER[pool]], ...where, take: PLAN_TAKE });
   const signalTags = new Set(signals.tags);
   const list = entities
@@ -116,7 +120,33 @@ async function fetchPool(reply: QlooReply, pool: Pool, signals: { entities: stri
     .filter((e) => within(e, where.near))
     .sort((a, b) => affinityOf(b) - affinityOf(a));
   const scope = where.near ? `within ${Math.round(where.near.radiusM / 1000)} km` : where.town ? `in ${spokenName(where.town)}` : "in Mauritius";
-  return list.map((e, i) => ({ e, place: toRanked(e, names, signalTags), pool, hotel: isHotel(e), rank: i + 1, of: list.length, scope }));
+  // Only things to do are chosen by fit; the meals have their own rules.
+  const fits = pool === "things" || pool === "nearThings" ? fitAll(list, profile) : new Map<string, Fit>();
+  return list.map((e, i) => ({ e, place: toRanked(e, names, signalTags), pool, hotel: isHotel(e), rank: i + 1, of: list.length, scope, fit: fitOf(fits, e) }));
+}
+
+/**
+ * Qloo's order counts as up to QLOO_ORDER_WEIGHT on top of the fit: its first place gets
+ * all of it, its last almost none. One rare tag link (about 2 to 3) outweighs the whole
+ * order; with no links at all, Qloo's order decides.
+ */
+export const QLOO_ORDER_WEIGHT = 1;
+/** Ties toward variety: an afternoon of the morning's primary genre (two beaches) loses this much. */
+export const SAME_GENRE_COST = 0.5;
+
+/** A thing to do's score; after a morning, the links it already showed count half and its genre costs SAME_GENRE_COST. */
+export function sightScore(c: Candidate, after?: Candidate): number {
+  const order = QLOO_ORDER_WEIGHT * ((c.of - c.rank + 1) / c.of);
+  if (!after) return c.fit.score + order;
+  const shown = new Set(after.fit.links.map((l) => l.key));
+  const fit = c.fit.links.reduce((s, l) => s + (shown.has(l.key) ? l.score / 2 : l.score), 0);
+  const g = primaryGenre(c.e);
+  return fit + order - (g && g === primaryGenre(after.e) ? SAME_GENRE_COST : 0);
+}
+
+/** Best first; Qloo's order on equal scores. */
+export function bySightScore(list: Candidate[], after?: Candidate): Candidate[] {
+  return [...list].sort((a, b) => sightScore(b, after) - sightScore(a, after) || a.rank - b.rank);
 }
 
 /** Lexicographic: the first lower key wins. */
@@ -150,7 +180,12 @@ export interface Pick {
   match?: Match;
   /** A food taste no place in the pool served (the meal fell back to the best restaurant). */
   missed?: string;
+  /** A thing to do's strongest tag links to the tastes (at most 2). */
+  links?: Link[];
 }
+
+/** How many tag links a why names. */
+const WHY_LINKS = 2;
 
 function cuisineMatch(c: Candidate, prefs: Prefs): Match | undefined {
   for (const f of prefs.foods) {
@@ -171,11 +206,11 @@ function eveningMatch(c: Candidate, prefs: Prefs): Match | undefined {
   return prefs.foods.length ? cuisineMatch(c, prefs) : undefined;
 }
 
-/** The candidates for a slot, best first. Stand-alone places always come before hotels. */
-export function rankForSlot(slot: Slot, pools: Record<Pool, Candidate[]>, prefs: Prefs): Candidate[] {
+/** The candidates for a slot, best first. Stand-alone places always come before hotels. The afternoon leans away from the morning. */
+export function rankForSlot(slot: Slot, pools: Record<Pool, Candidate[]>, prefs: Prefs, morning?: Candidate): Candidate[] {
   const aff = (c: Candidate) => -affinityOf(c.e);
-  if (slot === "morning") return pools.things;
-  if (slot === "afternoon") return pools.nearThings;
+  if (slot === "morning") return bySightScore(pools.things);
+  if (slot === "afternoon") return bySightScore(pools.nearThings, morning);
   if (slot === "lunch") {
     return [...pools.restaurants].sort(byKeys((c) => [c.hotel ? 1 : 0, cuisineMatch(c, prefs) ? 0 : 1, isMainlyBar(c.e) ? 1 : 0, aff(c)]));
   }
@@ -191,10 +226,12 @@ export function fillSlots(slots: readonly Slot[], pools: Record<Pool, Candidate[
   const used = new Set<string>();
   const out: Pick[] = [];
   for (const slot of slots) {
-    const c = rankForSlot(slot, pools, prefs).find((x) => !used.has(x.place.id));
+    const morning = out.find((p) => p.slot === "morning")?.c;
+    const c = rankForSlot(slot, pools, prefs, morning).find((x) => !used.has(x.place.id));
     if (!c) continue;
     used.add(c.place.id);
     const pick: Pick = { slot, c };
+    if (c.fit.links.length) pick.links = c.fit.links.slice(0, WHY_LINKS);
     if (slot === "lunch") {
       const m = cuisineMatch(c, prefs);
       if (m) pick.match = m;
@@ -236,12 +273,21 @@ export function ordinal(n: number): string {
  * list it came from, and the tag that ties it to a food or music taste. Qloo describes what
  * groups of people tend to like, so it never says what this traveller will enjoy.
  */
-export function whyFor({ c, match, missed }: Pick, names: SignalNames, tastes: string[]): string {
+/** One tag link, said: "Snorkeling (Life of Pi: Swimming underwater)", "Romantic (also on Norwegian Wood)", "Market stalls (your street food)". */
+function linkSaid(l: Link): string {
+  const taste = spokenName(l.taste);
+  if (l.food) return `${l.placeTag} (your ${taste})`;
+  if (!l.tasteTag) return `${l.placeTag} (${taste})`;
+  return l.tasteTag.toLowerCase() === l.placeTag.toLowerCase() ? `${l.placeTag} (also on ${taste})` : `${l.placeTag} (${taste}: ${l.tasteTag})`;
+}
+
+export function whyFor({ c, match, missed, links }: Pick, names: SignalNames, tastes: string[]): string {
   const credited = explainedBy(c.e).flatMap((x) => names.get(x.id) ?? []);
   const fans = (credited.length ? credited.slice(0, 1) : tastes.slice(0, 3)).map(spokenName);
   const [one, many] = NOUN[c.pool];
   const ranked = c.of === 1 ? `it is the only ${one} Qloo returned ${c.scope}` : `Qloo ranks it ${ordinal(c.rank)} of ${c.of} ${many} ${c.scope}`;
   let why = fans.length ? `Fans of ${joinNames(fans)} tend to like it: ${ranked}.` : `${capitalise(ranked)}.`;
+  if (links?.length) why += ` Its Qloo tags echo your tastes: ${links.map(linkSaid).join("; ")}.`;
   if (match) why += match.food ? ` Tagged ${match.tag}, matching your ${match.food}.` : ` Tagged ${match.tag}.`;
   if (missed) why += ` No ${missed}${PLACE_WORD.test(missed) ? "" : " place"} came up nearby, so this is Qloo's top restaurant here.`;
   if (c.hotel) why += ` It's a hotel's ${c.pool === "bars" ? "bar" : "restaurant"}: no stand-alone place was left nearby.`;
@@ -263,7 +309,8 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
   let day: Stop[] = [];
   let area: Area | undefined;
   try {
-    ({ signals, unresolved } = await resolveAll(reply, args.tastes, deps.log));
+    let tagsOf: Map<string, string[]>;
+    ({ signals, unresolved, tagsOf } = await resolveAll(reply, args.tastes, deps.log));
     if (signals.length) {
       const names: SignalNames = new Map(signals.map((s) => [s.id, s.input]));
       const entities = signals.filter((s) => s.source === "entity").map((s) => s.id);
@@ -277,9 +324,12 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
       // The food tags steer the meal calls only; sights follow the other tastes when there are any.
       const mealSig = { entities, tags };
       const thingsSig = entities.length ? { entities, tags: [] } : mealSig;
+      // What the things to do are scored against: each taste's Qloo tags, its kind and a food's cuisine.
+      const profile = profileOf(signals.map((s) => ({ input: s.input, kind: s.kind, tags: tagsOf.get(s.id) ?? [], ...(s.kind === "food" ? { cuisine: cuisineOf(s.id) } : {}) })));
+      const fetch = (pool: Pool, sig: typeof mealSig, where: Where) => fetchPool(reply, pool, sig, where, names, profile);
 
-      // The best thing to do on the island (or in the town) starts the day and sets the region.
-      const things = await fetchPool(reply, "things", thingsSig, { town: args.town }, names);
+      // The thing to do on the island (or in the town) that best fits the tastes starts the day and sets the region.
+      const things = bySightScore(await fetch("things", thingsSig, { town: args.town }));
       const first = things[0];
       const center = !args.town && first ? pointOf(first.e) : undefined;
       let km = REGION_KM;
@@ -300,7 +350,7 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
         const room = Math.max(0, PLAN_CALL_BUDGET - reply.calls.length);
         await Promise.all(
           calls.slice(0, room).map(async (pool) => {
-            pools[pool] = await fetchPool(reply, pool, pool === "nearThings" ? thingsSig : mealSig, where(), names);
+            pools[pool] = await fetch(pool, pool === "nearThings" ? thingsSig : mealSig, where());
           }),
         );
       };
@@ -327,7 +377,7 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
           ...(c.place.town ? { town: c.place.town } : {}),
           ...(center && at && c !== first ? { km_from_start: Math.round(distanceKm(center, at) * 10) / 10 } : {}),
           affinity: c.place.affinity,
-          tags: tellingTags(c.e, pick.match ? [pick.match.tag] : []),
+          tags: tellingTags(c.e, pick.match ? [pick.match.tag] : (pick.links ?? []).map((l) => l.placeTag)),
           why: whyFor(pick, names, fanOf),
           ...(c.place.location_unverified ? { location_unverified: true } : {}),
         };

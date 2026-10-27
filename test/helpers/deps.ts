@@ -87,7 +87,13 @@ export interface QlooScript {
   places?: MockPlace[];
   insightsStatus?: number;
   tags?: Array<{ id: string; name: string; parents?: Array<{ type: string }> }>;
+  /** Tag names a search result carries, by query (sent as live does: name, tag_id, type). */
+  searchTags?: Record<string, string[]>;
 }
+
+/** A search result's tags in the live shape, from names. */
+export const searchTagsOf = (names: string[]) =>
+  names.map((name) => ({ name, tag_id: `urn:tag:keyword:media:${name.toLowerCase().replace(/\W+/g, "_")}`, type: "urn:tag:keyword:media" }));
 
 /** A mock Qloo that answers the three endpoints from a script. Search names match "<query> Match". */
 export function qlooHandler(script: QlooScript) {
@@ -98,7 +104,11 @@ export function qlooHandler(script: QlooScript) {
       const query = q.query ?? "";
       if (script.notFound?.includes(query)) return json(res, 404, { code: 404, reason: "Not Found", message: "No results" });
       if (script.noMatch?.includes(query)) return json(res, 200, { success: true, results: [] });
-      return json(res, 200, { success: true, results: [{ name: `${query} Match`, entity_id: id(600 + query.length), types: [q.types], popularity: 0.5, properties: {} }] });
+      const tags = script.searchTags?.[query];
+      return json(res, 200, {
+        success: true,
+        results: [{ name: `${query} Match`, entity_id: id(600 + query.length), types: [q.types], popularity: 0.5, properties: {}, ...(tags ? { tags: searchTagsOf(tags) } : {}) }],
+      });
     }
     if (path === "/v2/tags") {
       const tags = script.tags ?? [{ id: "urn:tag:test:street_food", name: "Street Food", parents: [{ type: "urn:entity:place" }] }];

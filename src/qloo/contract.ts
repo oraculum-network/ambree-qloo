@@ -24,12 +24,22 @@ const Properties = z.looseObject({
   live_music: z.unknown().optional(),
 });
 
+/** A tag on an insights entity or a search result. A tag with no name is skipped by the tools, not a mismatch. */
+export const EntityTag = z.looseObject({
+  id: z.string().nullish(),
+  tag_id: z.string().nullish(),
+  name: z.string().nullish(),
+  type: z.string().nullish(),
+});
+
 export const SearchEntity = z.looseObject({
   name: z.string(),
   entity_id: z.string(),
   types: z.array(z.string()).nullish(),
   popularity: z.number().nullish(),
   properties: z.looseObject({}).nullish(),
+  // Live sends { name, tag_id, type } per tag (genre, mood, keyword...); plan_day reads the names.
+  tags: z.array(EntityTag).nullish(),
 });
 
 /** GET /search: `results` is a flat array (not results.entities). Live sends no `success`. */
@@ -50,14 +60,6 @@ export const Tag = z.looseObject({
 export const TagsResponse = z.looseObject({
   success: z.boolean().optional(),
   results: z.looseObject({ tags: z.array(Tag) }),
-});
-
-/** A tag on an insights entity. A tag with no name is skipped by the tools, not a mismatch. */
-export const EntityTag = z.looseObject({
-  id: z.string().nullish(),
-  tag_id: z.string().nullish(),
-  name: z.string().nullish(),
-  type: z.string().nullish(),
 });
 
 /**
