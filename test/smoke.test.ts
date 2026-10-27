@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { scrubbedEnv } from "./helpers/app.ts";
 import { type MockServer, json, queryOf, startMockServer } from "./helpers/mock-server.ts";
-import { SENTINEL_KEY, insightsBodyA, searchBody, tagsBody } from "./helpers/shapes.ts";
+import { SENTINEL_KEY, insightsBodyA, liveInsightsBody, liveSearchBody, liveTagsBody, searchBody, tagsBody } from "./helpers/shapes.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -50,6 +50,27 @@ const withMock = () => ({ QLOO_API_BASE: mock.url });
 const paths = () => mock.requests.map((r) => new URL(r.url, "http://x").pathname);
 
 describe("smoke", () => {
+  it("the live shapes of 27 Oct (no success on /search, admin2_region null, no affinity) → RESULT: OK; null fields are not 'seen'", async () => {
+    mock.setHandler((req, res) => {
+      const path = new URL(req.url, "http://x").pathname;
+      if (path === "/search") return json(res, 200, liveSearchBody());
+      if (path === "/v2/tags") return json(res, 200, liveTagsBody(3));
+      if (path === "/v2/insights") return json(res, 200, liveInsightsBody(5));
+      json(res, 404, {});
+    });
+    const r = await smoke({ stdin: `${SENTINEL_KEY}\n`, env: withMock() });
+    expect(r.code, r.stdout + r.stderr).toBe(0);
+    expect(r.stdout).not.toContain("MISMATCH");
+    expect(r.stdout.split("\n").filter((l) => l.startsWith("OK "))).toEqual([
+      "OK /search 200 1 results",
+      "OK /v2/tags 200 3 results",
+      "OK /v2/insights 200 5 results (signal: entity from /search)",
+    ]);
+    expect(r.stdout).toContain("\nMU check: 5 of 5 results have country_code MU (filter: filter.geocode.country_code=MU)\n");
+    expect(r.stdout).toContain("\nOptional fields seen: properties.geocode.name, properties.geocode.country_code, properties.address, tags\n");
+    expect(r.stdout).toContain("RESULT: OK");
+  });
+
   it("all OK → exit 0, 3 OK lines, and the mock saw X-Api-Key = sentinel on each call", async () => {
     const r = await smoke({ stdin: `${SENTINEL_KEY}\n`, env: withMock() });
     expect(r.code, r.stdout + r.stderr).toBe(0);

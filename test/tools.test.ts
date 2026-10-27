@@ -10,8 +10,10 @@ import { type PlanDayOutput, planDay, planDayInput, planDayOutput } from "../src
 import { MU_BY_COUNTRY, MU_BY_LOCATION, MU_FILTER, rankIn, rankPlaces, rankPlacesInput } from "../src/tools/rank-places.ts";
 import { resolveTastes, resolveTastesInput } from "../src/tools/resolve-tastes.ts";
 import { sentences } from "../src/tools/speech.ts";
+import type { ServerResponse } from "node:http";
 import { demoDeps, liveDeps, qlooHandler, startQlooMock } from "./helpers/deps.ts";
-import { type MockServer, json, queryOf } from "./helpers/mock-server.ts";
+import { type MockServer, type RecordedRequest, json, queryOf, startMockServer } from "./helpers/mock-server.ts";
+import { liveInsightsBody, liveSearchBody, liveTagsBody } from "./helpers/shapes.ts";
 
 let mock: MockServer | undefined;
 afterEach(async () => {
@@ -347,5 +349,76 @@ describe("plan_day", () => {
     expect(out.notice).toBe("live_unavailable");
     expect(out.day).toHaveLength(4);
     expect(out.speech).toMatch(/ Live Qloo access isn't available right now, so this uses demo data\.$/);
+  });
+});
+
+describe("live shapes (27 Oct 2026, synthetic values)", () => {
+  /** A mock Qloo answering in the live shapes: no `success` on /search, null regions, no affinity. */
+  function liveShapes(insights: () => unknown = () => liveInsightsBody(5)) {
+    return (req: RecordedRequest, res: ServerResponse) => {
+      const path = new URL(req.url, "http://x").pathname;
+      if (path === "/search") return json(res, 200, liveSearchBody([`${queryOf(req).query} (demo)`]));
+      if (path === "/v2/tags") return json(res, 200, liveTagsBody(3));
+      if (path === "/v2/insights") return json(res, 200, insights());
+      json(res, 404, {});
+    };
+  }
+
+  it("plan_day: a live day in Qloo's order, town only where Qloo gave one, score 0, nothing null", async () => {
+    mock = await startMockServer(liveShapes());
+    const logs: LogRecord[] = [];
+    const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Bob Marley" }, { kind: "food", name: "seafood" }] }), liveDeps(mock, logs)));
+    expect(logs.some((l) => l.event === "qloo_shape_mismatch")).toBe(false);
+    expect(out).toMatchObject({ mode: "live", unresolved: [] });
+    expect(out.notice).toBeUndefined();
+    expect(out.day.map((s) => [s.slot, s.place, s.town])).toEqual([
+      ["morning", "Live Shape Place 0 (demo)", "Port Louis"],
+      ["lunch", "Live Shape Place 1 (demo)", undefined],
+      ["afternoon", "Live Shape Place 2 (demo)", undefined],
+      ["evening", "Live Shape Place 3 (demo)", undefined],
+    ]);
+    for (const s of out.day) {
+      expect(s.affinity).toBe(0);
+      expect(s.location_unverified).toBeUndefined();
+      expect(s.tags).toEqual(["Test tag 0 (demo)"]);
+      expect(s.why).toBe("Because you like seafood.");
+    }
+    expect(out.day[1]).not.toHaveProperty("town");
+    expect(JSON.stringify(out)).not.toContain("null");
+    expect(planDayOutput.parse(out)).toEqual(out);
+    expect(out.speech).toBe(
+      "Start at Live Shape Place 0 in Port Louis, have lunch at Live Shape Place 1, spend the afternoon at Live Shape Place 2 and end the evening at Live Shape Place 3.",
+    );
+  });
+
+  it("rank_places: a null country code or geocode is unverified (kept, not 'in Mauritius'); another country is dropped; a nameless tag is skipped", async () => {
+    mock = await startMockServer(
+      liveShapes(() => {
+        const body = liveInsightsBody(4);
+        const [e0, e1, e2, e3] = body.results.entities as Array<Record<string, unknown>>;
+        (e0!.tags as unknown[]).push({ id: "urn:tag:demo:nameless", name: null });
+        (e1!.properties as { geocode: { country_code: string | null } }).geocode.country_code = null;
+        e2!.properties = null;
+        (e3!.properties as { geocode: { country_code: string } }).geocode.country_code = "FR";
+        return body;
+      }),
+    );
+    const out = ok(await rankPlaces(rankPlacesInput.parse({ entity_ids: ["e1"] }), liveDeps(mock)));
+    expect(out.places.map((p) => [p.name, p.town, p.location_unverified])).toEqual([
+      ["Live Shape Place 0 (demo)", "Port Louis", undefined],
+      ["Live Shape Place 1 (demo)", undefined, true],
+      ["Live Shape Place 2 (demo)", undefined, true],
+    ]);
+    expect(out.places[0]!.tags).toEqual(["Test tag 0 (demo)"]);
+    expect(out.dropped_non_mu).toBe(1);
+    expect(out.speech).toBe("Qloo's top places for you are Live Shape Place 0 in Port Louis, Live Shape Place 1 and Live Shape Place 2.");
+    expect(JSON.stringify(out)).not.toContain("null");
+  });
+
+  it("resolve_tastes: /search with no `success` resolves", async () => {
+    mock = await startMockServer(liveShapes());
+    const out = ok(await resolveTastes(resolveTastesInput.parse({ tastes: [{ kind: "music", name: "Bob Marley" }] }), liveDeps(mock)));
+    expect(out.signals).toEqual([{ input: "Bob Marley", kind: "music", id: "00000000-0000-4000-8000-000000000700", name: "Bob Marley (demo)", source: "entity" }]);
+    expect(out.speech).toBe("I matched Bob Marley on Qloo.");
   });
 });

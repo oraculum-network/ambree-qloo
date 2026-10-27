@@ -176,7 +176,8 @@ async function main(): Promise<number> {
       failed = true;
     } else out(`MU check: ${line}`);
     const raw = (i.body as { results: { entities: Array<Record<string, unknown>> } }).results.entities;
-    const seen = OPTIONAL_PLACE_FIELDS.filter(([, get]) => raw.some((e) => get(e) !== undefined)).map(([name]) => name);
+    // Seen = a value on at least one result; null (live sends admin2_region: null) is not a value.
+    const seen = OPTIONAL_PLACE_FIELDS.filter(([, get]) => raw.some((e) => get(e) != null)).map(([name]) => name);
     out(`Optional fields seen: ${seen.length ? seen.join(", ") : "none"}`);
   } else failed = true;
 

@@ -158,7 +158,8 @@ function renderDay(out) {
       li.append(tags);
     }
     li.append(el("p", "card-why", stop.why));
-    li.append(el("p", "card-score", `Qloo affinity ${stop.affinity.toFixed(2)}`));
+    // 0 means Qloo sent no score (live insights may leave out query.affinity): no line then.
+    if (stop.affinity > 0) li.append(el("p", "card-score", `Qloo affinity ${stop.affinity.toFixed(2)}`));
     dayEl.append(li);
   }
   const missed = out.unresolved.map((u) => u.input);

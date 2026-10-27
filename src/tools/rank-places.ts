@@ -36,7 +36,7 @@ export const rankedPlaceOut = z.object({
   id: z.string(),
   name: z.string(),
   town: z.string().optional(),
-  affinity: z.number().describe("Qloo's affinity score, 0 to 1."),
+  affinity: z.number().describe("Qloo's affinity score, 0 to 1 (0 when Qloo sent none; results then keep Qloo's order)."),
   tags: z.array(z.string()).describe("Qloo tag names on the place."),
   why: z.array(z.string()).describe("The tastes that contributed most, strongest first."),
   location_unverified: z.boolean().optional().describe("true when Qloo gave no country code for this result."),

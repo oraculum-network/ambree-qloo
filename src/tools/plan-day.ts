@@ -31,7 +31,7 @@ export const stopOut = z.object({
   place: z.string(),
   place_id: z.string(),
   town: z.string().optional(),
-  affinity: z.number(),
+  affinity: z.number().describe("Qloo's affinity score, 0 to 1 (0 when Qloo sent none)."),
   tags: z.array(z.string()),
   why: z.string().describe("Which of the traveller's tastes led here."),
   location_unverified: z.boolean().optional().describe("true when Qloo gave no country code for this place."),

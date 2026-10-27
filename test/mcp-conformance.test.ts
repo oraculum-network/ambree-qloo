@@ -11,6 +11,8 @@ import { rankPlacesOutput } from "../src/tools/rank-places.ts";
 import { resolveTastesOutput } from "../src/tools/resolve-tastes.ts";
 import { DEMO_SENTENCE, sentences } from "../src/tools/speech.ts";
 import { type TestApp, connectClient, startTestApp } from "./helpers/app.ts";
+import { json, queryOf, startMockServer } from "./helpers/mock-server.ts";
+import { SENTINEL_KEY, liveInsightsBody, liveSearchBody, liveTagsBody } from "./helpers/shapes.ts";
 
 let t: TestApp;
 let client: Client;
@@ -96,6 +98,33 @@ describe("tools/call", () => {
       expect(validate(res.structuredContent).valid, name).toBe(true);
       const { speech: _dropped, ...broken } = res.structuredContent as { speech: string };
       expect(validate(broken).valid, name).toBe(false);
+    }
+  });
+
+  it("live mode, Qloo in the live shapes (no success, null regions, no affinity): every tool's structuredContent validates", async () => {
+    const mock = await startMockServer((req, res) => {
+      const path = new URL(req.url, "http://x").pathname;
+      if (path === "/search") return json(res, 200, liveSearchBody([`${queryOf(req).query} (demo)`]));
+      if (path === "/v2/tags") return json(res, 200, liveTagsBody(3));
+      if (path === "/v2/insights") return json(res, 200, liveInsightsBody(5));
+      json(res, 404, {});
+    });
+    const live = await startTestApp({ env: { QLOO_API_KEY: SENTINEL_KEY, QLOO_API_BASE: mock.url, RATE_LIMIT_SCALE: "10" } });
+    const liveClient = await connectClient(live.url);
+    try {
+      const { tools } = await liveClient.listTools();
+      const ajv = new AjvJsonSchemaValidator();
+      for (const [name, args] of cases) {
+        const res = (await liveClient.callTool({ name, arguments: args })) as CallToolResult;
+        expect(res.isError, `${name}: ${JSON.stringify(res.content)}`).toBeFalsy();
+        expect(res.structuredContent, name).toMatchObject({ mode: "live" });
+        expect(ajv.getValidator(tools.find((x) => x.name === name)!.outputSchema!)(res.structuredContent).valid, name).toBe(true);
+      }
+      expect(live.logs.some((l) => l.event === "qloo_shape_mismatch")).toBe(false);
+    } finally {
+      await liveClient.close();
+      await live.close();
+      await mock.close();
     }
   });
 

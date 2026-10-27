@@ -1,5 +1,6 @@
 // The demo page in Chromium, in demo mode: the banner, a chip plan, Under the hood,
-// 360 px layout, keyboard submit, screenshots, and no foreign requests.
+// 360 px layout, keyboard submit, screenshots, and no foreign requests. One test stubs
+// plan_day with a live-mode reply to check the cards for places with no score or town.
 
 import { mkdirSync } from "node:fs";
 import { type Page, test as base, expect } from "@playwright/test";
@@ -92,6 +93,37 @@ test("360 px: no horizontal overflow", async ({ page }) => {
   await page.locator("#hood summary").click();
   await expect(page.locator(".hood-turn")).toHaveCount(1);
   await noHorizontalOverflow(page);
+});
+
+test("live cards: no score line when Qloo sent no affinity, no town line when it sent no town", async ({ page }) => {
+  // plan_day's reply is stubbed (same origin) with the shape the tools give for live insights
+  // with no query.affinity and a null city/name (test/tools.test.ts "live shapes").
+  const out = {
+    mode: "live",
+    day: [
+      { slot: "morning", place: "Live Shape Place 0 (demo)", place_id: "00000000-0000-4000-8000-000000000600", town: "Port Louis", affinity: 0, tags: ["Test tag 0 (demo)"], why: "Because you like seafood." },
+      { slot: "lunch", place: "Live Shape Place 1 (demo)", place_id: "00000000-0000-4000-8000-000000000601", affinity: 0.42, tags: [], why: "A strong Qloo match for your tastes." },
+    ],
+    signals: [],
+    unresolved: [],
+    qloo_calls: [{ endpoint: "/v2/insights", ms: 5, cached: false }],
+    speech: "Start at Live Shape Place 0 in Port Louis and have lunch at Live Shape Place 1.",
+  };
+  await page.route("**/mcp", async (route) => {
+    const msg = route.request().postDataJSON();
+    if (msg?.method !== "tools/call") return route.fallback();
+    await route.fulfill({ json: { jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text: JSON.stringify(out) }], structuredContent: out } } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Bob Marley · seafood · Life of Pi" }).click();
+  const cards = page.locator("#day .card");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0).locator(".card-town")).toHaveText("Port Louis");
+  await expect(cards.nth(0).locator(".card-score")).toHaveCount(0);
+  await expect(cards.nth(1).locator(".card-town")).toHaveCount(0);
+  await expect(cards.nth(1).locator(".card-score")).toHaveText("Qloo affinity 0.42");
+  await expect(page.locator("#day")).not.toContainText("null");
+  await expect(page.locator(".hood-turn .badge").first()).toHaveText("Live Qloo");
 });
 
 test("keyboard: Enter submits", async ({ page }) => {
