@@ -23,10 +23,26 @@ describe("manifests", () => {
   });
 
   it("imagePullPolicy Never", () => {
-    expect(deployment).toMatch(/image: ambree-qloo:CHANGEME-sha7\n\s+imagePullPolicy: Never/);
-    // The tag is set in one place, the kustomization, by DEPLOY.md step 4's sed.
-    expect(read("deploy/k8s/kustomization.yaml")).toMatch(/images:\n\s+- name: ambree-qloo\n\s+newTag: CHANGEME-sha7\n/);
-    expect(read("DEPLOY.md")).toContain('sed -i "s/newTag: CHANGEME-sha7/newTag: $(git rev-parse --short=7 HEAD)/" deploy/k8s/kustomization.yaml');
+    // The deploy gate builds and admits only oraculum/<service>:<sha>; the service is ambree-qloo.
+    expect(deployment).toMatch(/image: oraculum\/ambree-qloo\n\s+imagePullPolicy: Never/);
+    // The tag is set in one place: an overlay over the kustomization, at deploy time (DEPLOY.md step 3).
+    expect(read("deploy/k8s/kustomization.yaml")).toMatch(/images:\n\s+- name: oraculum\/ambree-qloo\n\s+newTag: set-by-deploy\n/);
+    expect(read("DEPLOY.md")).toContain("images:\\n  - name: oraculum/ambree-qloo\\n    newTag: \"%s\"\\n");
+  });
+
+  it("labels the qloo NetworkPolicies select", () => {
+    // ops/oracle/security.sh: allow-from-traefik and allow-https-egress select app.kubernetes.io/name: ambree-qloo.
+    expect(deployment).toMatch(/selector:\n\s+matchLabels:\n\s+app\.kubernetes\.io\/name: ambree-qloo\n\s+template:\n\s+metadata:\n\s+labels:\n\s+app\.kubernetes\.io\/name: ambree-qloo\n/);
+    expect(read("deploy/k8s/service.yaml")).toMatch(/selector:\n\s+app\.kubernetes\.io\/name: ambree-qloo\n/);
+    expect(deployment).toMatch(/containerPort: 8080/);
+  });
+
+  it("Ingress TLS as alexa's: websecure, router.tls, resolver le, no tls stanza", () => {
+    expect(ingress).toContain("traefik.ingress.kubernetes.io/router.entrypoints: websecure");
+    expect(ingress).toContain('traefik.ingress.kubernetes.io/router.tls: "true"');
+    expect(ingress).toContain("traefik.ingress.kubernetes.io/router.tls.certresolver: le");
+    expect(ingress).not.toMatch(/^\s*tls:/m);
+    expect(ingress).not.toMatch(/defaultBackend/);
   });
 
   it("readOnlyRootFilesystem", () => {

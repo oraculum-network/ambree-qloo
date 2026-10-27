@@ -1,20 +1,21 @@
 # qloo.ambree.ai on oraculum-prod (k3s). Rendered with `kubectl kustomize deploy/k8s`.
 # The namespace, its PSA labels, NetworkPolicies, quota and the qloo-low PriorityClass come
-# from the host's security setup (DEPLOY.md step 1), not from here. So does the Secret
-# qloo-api, which deploy/store-key.sh creates; until it exists the app runs in demo mode.
+# from the monorepo's ops/oracle/security.sh (the qloo block), not from here. So does the
+# Secret qloo-api, which deploy/store-key.sh creates; until it exists the app runs in demo mode.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: qloo
 labels:
   - pairs:
-      app.kubernetes.io/name: ambree-qloo
-      app.kubernetes.io/part-of: ambree
+      app.kubernetes.io/part-of: ambree-qloo
+      app.kubernetes.io/managed-by: oraculum-deploy
 resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
-# The image is built and imported on the host. Its tag (the 7-char commit sha) replaces
-# CHANGEME-sha7 here before applying: DEPLOY.md step 4.
+# The image is built on the host by the deploy gate as oraculum/ambree-qloo:<sha7>. The deploy
+# renders this dir through an overlay that sets newTag to that sha (DEPLOY.md step 3);
+# `set-by-deploy` as it stands would fail with ErrImageNeverPull, never run a stale image.
 images:
-  - name: ambree-qloo
-    newTag: CHANGEME-sha7
+  - name: oraculum/ambree-qloo
+    newTag: set-by-deploy

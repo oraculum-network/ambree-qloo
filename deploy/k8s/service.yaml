@@ -2,9 +2,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: qloo-web
+  labels:
+    app.kubernetes.io/name: ambree-qloo
 spec:
+  type: ClusterIP
   selector:
-    app: qloo-web
+    app.kubernetes.io/name: ambree-qloo
   ports:
     - name: http
       port: 80

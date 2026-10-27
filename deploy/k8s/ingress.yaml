@@ -1,12 +1,21 @@
-# Traefik (k3s) routes qloo.ambree.ai to the Service. TODO-CHECK at unpark: copy the
-# entrypoint annotation and the TLS stanza from alexa.ambree.ai's Ingress (DEPLOY.md step 1),
-# which this repo could not read when it was written.
+# https://qloo.ambree.ai: HTTPS only (websecure), its own Let's Encrypt certificate from
+# Traefik's `le` resolver. The same annotations as every Ingress on oraculum-prod
+# (k8s/oracle/alexa, site, bots in the monorepo); like them, no `tls:` stanza: Traefik's
+# router.tls annotation turns TLS on and the resolver supplies the certificate.
+#
+# ORDER: the A record qloo.ambree.ai -> 130.61.238.6 (Cloudflare, DNS-only) must resolve
+# publicly BEFORE the first apply: Traefik tries a certificate once and doesn't retry a
+# failed one on its own.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: qloo-web
+  labels:
+    app.kubernetes.io/name: ambree-qloo
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: le
 spec:
   ingressClassName: traefik
   rules:

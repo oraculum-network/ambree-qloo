@@ -1,90 +1,108 @@
 # Deploy plan: qloo.ambree.ai on oraculum-prod
 
-**Status: a plan, never run.** Hosting waits on the CEO's go. Nothing here has touched a server. The pattern copies
-alexa.ambree.ai: the image is built on the host (never on a laptop), k3s runs it with `imagePullPolicy: Never`, and
-Traefik routes the host. Every detail this repo could not check against alexa's own files is marked **TODO-CHECK**,
-with the file to compare against. alexa's `k8s/` and `ops/` files were not readable when this was written; the facts
-below come from the run's item-01 plan (`items/01-prod/PLAN.md`).
+The pattern is alexa.ambree.ai's (live since 20 Oct):
+- the image is built on the host, never on a laptop;
+- k3s runs it with `imagePullPolicy: Never`;
+- Traefik routes the host and gets its Let's Encrypt certificate.
+
+This repo is not in the monorepo, so the monorepo's `ops/oracle/deploy.sh` can't deploy it (it archives only its own
+repo). The steps below send the same deploy-gate requests by hand. The 27 Oct run is scripted in the CTO's
+`cw-out/2026-10-27/qloo/deploy-qloo.sh`.
 
 What this repo provides:
 
 | File | What it is |
 |---|---|
 | `Dockerfile`, `.dockerignore` | node:22-alpine (digest-pinned, as ambree-alexa), `npm ci --omit=dev --ignore-scripts`, runs as `node`, read-only root filesystem |
-| `deploy/k8s/` | Deployment `qloo-web`, Service, Ingress for `qloo.ambree.ai`, namespace `qloo` (`kubectl kustomize deploy/k8s` renders 3 objects) |
-| `deploy/store-key.sh` | Stores the Qloo key in Secret `qloo/qloo-api`, key `QLOO_API_KEY` (hidden prompt or stdin; create empty, then patch; never apply) |
+| `deploy/k8s/` | Deployment, Service and Ingress `qloo-web` for `qloo.ambree.ai`, namespace `qloo`, image `oraculum/ambree-qloo` (`kubectl kustomize deploy/k8s` renders 3 objects) |
+| `deploy/store-key.sh` | Stores the Qloo key in Secret `qloo/qloo-api`, key `QLOO_API_KEY` (hidden prompt on a terminal, else one line on stdin; create empty, then patch; never apply) |
 | `scripts/smoke.ts` | `npm run smoke`, or `node scripts/smoke.ts` in the pod: one live call per Qloo endpoint, checked against the contract |
 
 **Safe default.** The Deployment reads `QLOO_API_KEY` from Secret `qloo-api` with `optional: true`. With no Secret,
 the pod boots in demo mode: synthetic fixtures, no outbound call, "demo data" on the page and in every spoken reply.
 
-## 1. Monorepo follow-ups (CTO, in devnet; not done here)
-
-This repo may not edit the monorepo. Before the first deploy:
-
-1. **Deploy gate namespace.** Add `qloo` to `APP_NAMESPACES` in `ops/oracle/deploy-gate.sh` (line 55 allows
-   `concierge site bots-system alexa`), with its gate tests.
-2. **Ingress host allowlist.** TODO-CHECK `ops/oracle/deploy-gate.sh:81`: item 01 says it "already admits
-   `ambree.ai`", so `qloo.ambree.ai` may need no change.
-3. **Security block.** A `qloo` block in `ops/oracle/security.sh`, mirroring the alexa block (lines 314-409):
-   - the namespace with PSA `restricted`;
-   - NetworkPolicies: default deny; ingress from Traefik only; egress to DNS and to TCP 443 outside the cluster
-     (a NetworkPolicy can't name a host such as `hackathon.api.qloo.com`; TODO-CHECK how the alexa block allows its
-     egress to MET Norway and GDACS, and copy that form);
-   - a ResourceQuota of 100m / 256Mi (the pod asks 25m / 64Mi, limit 100m / 192Mi);
-   - a PriorityClass `qloo-low` with the same value as `alexa-low`, and the same priority guard.
-4. **deploy.sh service entry.** A `qloo-web` entry in `ops/oracle/deploy.sh` that builds this repo the way it builds
-   alexa (image `ambree-qloo:<sha7>`, k3s import), with `KDIR=deploy/k8s` and the image tag substituted for
-   `CHANGEME-sha7`. TODO-CHECK against alexa's entry: how the repo reaches the host (step 3 below) and the tag rule.
-5. **Ingress TLS.** TODO-CHECK `k8s/oracle/alexa*/ingress.yaml`: copy its entrypoint annotation and `tls` stanza into
-   `deploy/k8s/ingress.yaml`.
-6. **Uptime.** An uptime line for `https://qloo.ambree.ai/healthz` next to alexa's.
-
-## 2. DNS (CEO or CTO)
-
-An `A` record `qloo.ambree.ai` to the oraculum-prod address, the same as `alexa.ambree.ai`.
-
-## 3. Image, built on the host
-
-The repo is private until the CEO says otherwise, so it travels as a bundle, not a clone:
+In the commands below, `K` is the admin's ssh (`ubuntu@130.61.238.6`, key `~/.ssh/oraculum-oci`) and `D` is the
+deploy user's (`deploy@130.61.238.6`, key `~/.ssh/oraculum-deploy`), whose forced command is the deploy gate. Run them
+from bash, not zsh (zsh doesn't split `${K[@]}`):
 
 ```bash
-git -C /Users/haidar.deenmahomed/trp/ambree-qloo bundle create /tmp/ambree-qloo.bundle --all
+K=(-i ~/.ssh/oraculum-oci -o ConnectTimeout=15 ubuntu@130.61.238.6)
+D=(-i ~/.ssh/oraculum-deploy -o IdentitiesOnly=yes -o BatchMode=yes deploy@130.61.238.6)
 ```
 
-Copy the bundle to the host and build there the way `deploy.sh` builds alexa (TODO-CHECK the exact build and
-`k3s ctr images import` commands in deploy.sh's alexa path). The image name is `ambree-qloo:<sha7>`.
+## 1. The monorepo side (branch `ops/qloo-host`)
 
-## 4. Set the image tag, then apply
+These were TODO-CHECKs; they were checked against the alexa sources on 27 Oct:
 
-On the host, in the checkout the image was built from. The tag is that commit's 7-char sha; `kustomization.yaml`
-ships with `newTag: CHANGEME-sha7`, which would fail with `ErrImageNeverPull`:
+| What | Where (monorepo) | Result |
+|---|---|---|
+| The gate admits the image and namespace | `ops/oracle/remote/deploy-gate.sh` | `SERVICES` gains `ambree-qloo` (image `oraculum/ambree-qloo:<sha7>`, the alexa rule), `APP_NAMESPACES` gains `qloo` |
+| The Ingress host allowlist | `deploy-gate.sh` `INGRESS_HOST_RE` | Admits any subdomain of `ambree.ai`, so `qloo.ambree.ai` needs no change. Every rule needs a host; no `defaultBackend` |
+| Namespace, quotas, NetworkPolicies | `ops/oracle/security.sh`, the qloo block | A copy of alexa's: PSA restricted, `qloo-low` = 100 (as `alexa-low`), `qloo-cap`, `qloo-limits`, `qloo-priority-guard`, and these NetworkPolicies: in from Traefik on :8080; out to DNS; out to TCP 443 at `0.0.0.0/0` minus the private ranges, the metadata service and the host's own IP. A NetworkPolicy can't name `hackathon.api.qloo.com`; this is the form alexa uses for OpenRouter |
+| Labels the policies select | same | `app.kubernetes.io/name: ambree-qloo` on the pod template (`deploy/k8s/deployment.yaml`) |
+| deploy.sh entry | `ops/oracle/deploy.sh` | None that deploys: `deploy.sh ambree-qloo` refuses with a pointer here (step 3 does its job by hand) |
+| Ingress TLS | `k8s/oracle/alexa/ingress.yaml` | Annotations `router.entrypoints: websecure`, `router.tls: "true"`, `router.tls.certresolver: le`; no `tls:` stanza (no Ingress on the host has one) |
+| `jq` on the host | the gate | The gate's `apply` already needs `jq`, so it is there |
+| `exec` and `rollout restart` | the gate's verbs | Not gate verbs. They run as the admin (`ssh "${K[@]}" 'sudo k3s kubectl …'`), as alexa's Secret and restarts did |
+| Uptime | none for alexa either | No monitor exists to copy (open question for the CTO) |
+
+Before the first deploy, the CTO:
+1. merges `ops/qloo-host`;
+2. installs the gate on the host;
+3. runs the monorepo's `security.sh`:
 
 ```bash
-sed -i "s/newTag: CHANGEME-sha7/newTag: $(git rev-parse --short=7 HEAD)/" deploy/k8s/kustomization.yaml
-kubectl kustomize deploy/k8s | grep 'image:'
-kubectl apply -k deploy/k8s
+ssh "${K[@]}" 'sudo bash -s' < ops/oracle/security.sh
 ```
 
-The `grep` must print `image: ambree-qloo:<that sha>`. TODO-CHECK whether alexa's `deploy.sh` entry already does this
-substitution (step 1.4); if so, use it instead. With no Secret yet, the site serves demo mode.
+Its last line must read `qloo: psa restricted | netpols allow-dns-egress allow-from-traefik allow-https-egress default-deny | quotas qloo-cap qloo-priority-guard | priorityclass qloo-low=100`.
 
-## 5. Store the key (when the CEO's Qloo email arrives)
+## 2. DNS
 
-On the host, from the repo checkout. `store-key.sh` needs `jq` (TODO-CHECK `command -v jq` on the host first):
+An `A` record `qloo.ambree.ai` → 130.61.238.6, DNS-only (not proxied), the same as `alexa.ambree.ai`. The Cloudflare
+token is IP-locked to the host, so the API call runs there with the token piped over ssh (deploy-qloo.sh's `dns`
+step). It must resolve publicly **before** the first apply: Traefik asks Let's Encrypt once and doesn't retry a
+failed certificate on its own.
+
+## 3. Image and apply, through the gate
+
+From this repo on the Mac, at the commit to deploy. The tag is its 7-char sha. The repo stays private and needs no
+remote: `git archive` streams the tree to the gate, which builds it with nerdctl + BuildKit (native arm64) into k3s
+containerd, as `deploy.sh` does for alexa:
 
 ```bash
-bash deploy/store-key.sh
-kubectl -n qloo rollout restart deploy/qloo-web
+T=$(git rev-parse --short=7 HEAD)
+ssh "${D[@]}" "images ambree-qloo"
+git archive --format=tar HEAD | gzip -c | ssh "${D[@]}" "build ambree-qloo $T"
 ```
 
-Or from the Mac, so the key never lands in a file or shell history: `read -rs k` on the Mac, then pipe
-`printf '%s\n' "$k"` over ssh into `bash deploy/store-key.sh` (which reads one line from stdin when it has no terminal).
-
-## 6. Verify
+Render `deploy/k8s` through an overlay that sets the tag, the way `deploy.sh` does. `kustomization.yaml` ships with
+`newTag: set-by-deploy`, which would fail with `ErrImageNeverPull` rather than run a stale image:
 
 ```bash
-kubectl -n qloo exec deploy/qloo-web -- node scripts/smoke.ts
+O=$(mktemp -d); mkdir "$O/src" "$O/overlay"; git archive HEAD deploy/k8s | tar -x -C "$O/src"
+printf 'apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../src/deploy/k8s\nimages:\n  - name: oraculum/ambree-qloo\n    newTag: "%s"\n' "$T" > "$O/overlay/kustomization.yaml"
+kubectl kustomize "$O/overlay" > "$O/rendered.yaml"; grep 'image:' "$O/rendered.yaml"
+ssh "${D[@]}" "apply" < "$O/rendered.yaml"
+ssh "${D[@]}" "rollout-status qloo deployment/qloo-web 300"
+```
+
+The `grep` must print `image: oraculum/ambree-qloo:<T>`. With no Secret yet, the site serves demo mode.
+
+## 4. Store the key
+
+The key travels from the Mac Keychain over ssh stdin into `store-key.sh` on the host. It is never in a file, argv,
+shell history or a log. The script itself goes in argv (it holds no secret). `KUBECTL` is the host's `k3s kubectl`:
+
+```bash
+security find-generic-password -s oraculum-qloo -a travelbook -w | ssh "${K[@]}" "sudo env KUBECTL='k3s kubectl' bash -c $(printf %q "$(cat deploy/store-key.sh)") store-key"
+ssh "${K[@]}" 'sudo k3s kubectl -n qloo rollout restart deployment/qloo-web && sudo k3s kubectl -n qloo rollout status deployment/qloo-web --timeout=300s'
+```
+
+## 5. Verify
+
+```bash
+ssh "${K[@]}" 'sudo k3s kubectl -n qloo exec deploy/qloo-web -- node scripts/smoke.ts'
 curl -s https://qloo.ambree.ai/healthz
 ```
 
@@ -93,25 +111,24 @@ result had `country_code` MU; README "Check the live contract" says how to switc
 
 Smoke searches one artist only. Then click the page's three example chips once, in live mode: the page should show no
 "Qloo had no match for: …" line, and each turn under "Under the hood" should be badged "Live Qloo", not "Demo data".
-An unmatched taste shows up in the pod log as
+An unmatched taste shows up in the pod log (`ssh "${K[@]}" 'sudo k3s kubectl -n qloo logs deploy/qloo-web'`) as
 `qloo_no_match` with its endpoint, status and type (a 403 there means the key may not use that entity type).
-`/healthz` then shows
-`"mode":"live"`; on its own that shows only that a key is set, not that it works. TODO-CHECK: item 01 lists only
-`rollout-status`, `revision` and `get` as gate verbs (`items/01-prod/PLAN.md:136`), so `exec` and `rollout restart`
-may need host-side kubectl rather than the gate.
+`/healthz` then shows `"mode":"live"`; on its own that shows only that a key is set, not that it works.
 
-## 7. Rollback to demo mode
+## 6. Rollback to demo mode
 
 ```bash
-kubectl -n qloo patch secret qloo-api --type=json -p '[{"op":"remove","path":"/data/QLOO_API_KEY"}]'
-kubectl -n qloo rollout restart deploy/qloo-web
+ssh "${K[@]}" 'sudo k3s kubectl -n qloo delete secret qloo-api && sudo k3s kubectl -n qloo rollout restart deployment/qloo-web'
 ```
 
-This removes the key without deleting the Secret (the gate has no delete verb, `items/01-prod/PLAN.md:56`). The pod
-comes back in demo mode. To take the site down instead: `kubectl -n qloo scale deploy/qloo-web --replicas=0`.
+The pod comes back in demo mode. To take the site down instead:
+`ssh "${K[@]}" 'sudo k3s kubectl -n qloo scale deployment/qloo-web --replicas=0'`. A failed image rollout:
+`ssh "${D[@]}" "rollout-undo qloo deployment/qloo-web"`.
 
 ## Hosting window
 
-The brief keeps the demo up until 16 Nov. The rules end judging on 5 Nov, and Qloo deactivates hackathon keys after the
+Keep it up until judging ends (~5 Nov; possible live finals 1-5 Nov). Qloo deactivates hackathon keys after the
 hackathon closes. A dead key answers 401/403, and each reply then falls back to labelled demo data on its own
-(`notice: live_unavailable`), so the site needs no change when the key dies.
+(`notice: live_unavailable`), so the site needs no change when the key dies. Removal: delete the Deployment, Service,
+Ingress and Secret in `qloo`, then the DNS record, then the monorepo's qloo block and gate entries
+(monorepo `ops/oracle/README.md`, "Ambree taste planner").
