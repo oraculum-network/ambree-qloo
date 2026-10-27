@@ -18,7 +18,7 @@ sentences, written to be read aloud, plus the structured detail.
 |---|---|---|
 | `resolve_tastes` | 1 to 6 tastes (`music`, `film`, `tv`, `book`, `podcast`, `game`, `brand`, `person`, `place`, `food`) → Qloo entity IDs, or place tags for food. A taste Qloo can't match goes in `unresolved`, never guessed. | `GET /search`, `GET /v2/tags` |
 | `rank_places` | Entity and tag signals (and an optional vibe such as "beach", and a town) → places or destinations in Mauritius ranked by Qloo affinity, with tags and the tastes each came from. | `GET /v2/tags`, `GET /v2/insights` |
-| `plan_day` | The whole chain in one call: resolve → one Insights call for places in Mauritius → 4 stops (or 3 at a relaxed pace), each slot filled by the best-matching place whose tags suit it. | all three |
+| `plan_day` | The whole chain in one call: resolve → Insights for things to do, restaurants and bars → 4 stops (or 3 at a relaxed pace) in one region. Morning and afternoon are things to do (never a hotel), lunch a restaurant in your food taste, the evening a bar or restaurant (live music for a music taste). At most 10 Qloo calls. | all three |
 
 All three are read-only (`readOnlyHint`) and open-world. Each result carries `mode` (`live` or `demo`), the Qloo
 calls behind it (`qloo_calls`: endpoint, ms, cached) and `speech`.
@@ -28,8 +28,13 @@ calls behind it (`qloo_calls`: endpoint, ms, cached) and `speech`.
 Without Qloo there is nothing to plan with. The server has no list of places of its own: every place in a live
 reply comes from Qloo Insights (`filter.type=urn:entity:place`, `filter.geocode.country_code=MU`), ranked by Qloo's
 affinity for the traveller's own signals (`signal.interests.entities` from `/search`, `signal.interests.tags` from
-`/v2/tags`). The "why" on each stop comes from Qloo's `feature.explainability`, which says which input taste
-contributed most. Without a key the app does not pretend: it switches to clearly labelled synthetic demo data.
+`/v2/tags`, the food tag on the meal calls only). Qloo's tags decide what each place is: `filter.tags` asks for
+things to do (`urn:tag:category:place:tourist_attraction`), restaurants (`urn:tag:genre:place:restaurant`) and bars
+(`urn:tag:category:place:bar`); `properties.primary_genre` keeps hotels out of the sights; a cuisine tag such as
+`urn:tag:cuisine:qloo:seafood` picks lunch. Qloo's `filter.location` keeps the day within 15 km of the first stop.
+Each stop's "why" is built from what Qloo returned for it: whose fans tend to like it (the taste Qloo's
+`feature.explainability` credits most, when it sends one), its rank in that list, and the tag that matched a taste.
+Without a key the app does not pretend: it switches to clearly labelled synthetic demo data.
 
 ## Run it locally (no key needed)
 

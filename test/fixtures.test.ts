@@ -113,7 +113,7 @@ describe("demo fixtures", () => {
     expect(ents[0]!.tags!.map((t) => t.id)).toContain("urn:tag:category:place:beach");
     expect(ents[0]!.query?.explainability).toEqual({ "signal.interests.entities": [{ entity_id: sig, score: 1 }] });
     const inTown = InsightsResponse.parse((await demo.get("insights", insightsParams({ type: "urn:entity:place", entities: [sig], town: "mahebourg", take: 10 }))).body);
-    expect(inTown.results.entities.map((e) => e.properties?.geocode?.city)).toEqual(["Mahébourg", "Mahébourg", "Mahébourg", "Mahébourg"]);
+    expect(inTown.results.entities.map((e) => e.properties?.geocode?.city)).toEqual(["Mahébourg", "Mahébourg", "Mahébourg", "Mahébourg", "Mahébourg"]);
     const elsewhere = InsightsResponse.parse((await demo.get("insights", insightsParams({ type: "urn:entity:place", entities: [sig], countryCode: "FR", take: 10 }))).body);
     expect(elsewhere.results.entities).toEqual([]);
   });

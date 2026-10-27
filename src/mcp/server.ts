@@ -99,7 +99,7 @@ export function buildMcpServer(deps: ToolDeps): McpServer {
     {
       title: "Plan a day",
       description:
-        "Plan a day in Mauritius from a traveller's tastes in one call: it resolves the tastes on Qloo, has Qloo Insights rank places on the island, and fills morning, lunch, afternoon and evening (or 3 stops at a relaxed pace) with distinct places, saying which taste led to each. " +
+        "Plan a day in Mauritius from a traveller's tastes in one call: it resolves the tastes on Qloo, then has Qloo Insights rank things to do, restaurants and bars. Morning and afternoon are things to do (never a hotel), lunch a restaurant in the traveller's food taste when Qloo has one, the evening a bar or restaurant (live music for a music taste); every stop after the first is within 15 km of it. Each stop says why Qloo suggests it. " +
         "Prefer this tool when someone asks what to do. Read the speech field aloud.",
       inputSchema: planDayInput,
       outputSchema: planDayOutput,

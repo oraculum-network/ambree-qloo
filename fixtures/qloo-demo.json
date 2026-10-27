@@ -281,7 +281,8 @@
       "tags": [
         { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
         { "id": "urn:tag:cuisine:qloo:creole", "name": "Creole (demo)", "type": "urn:tag:cuisine:qloo" },
-        { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo" }
+        { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo" },
+        { "id": "urn:tag:cuisine:qloo:seafood", "name": "Seafood (demo)", "type": "urn:tag:cuisine:qloo" }
       ]
     },
     {
@@ -318,6 +319,66 @@
       "tags": [
         { "id": "urn:tag:category:place:tourist_attraction", "name": "Tourist attraction (demo)", "type": "urn:tag:category:place" },
         { "id": "urn:tag:category:place:museum", "name": "Museum (demo)", "type": "urn:tag:category:place" }
+      ]
+    },
+    {
+      "name": "Harbour Prawn House (demo)", "entity_id": "00000000-0000-4000-8000-000000000040", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.58,
+      "properties": { "geocode": { "name": "Port Louis", "city": "Port Louis", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:seafood" } },
+      "location": { "lat": -20.161, "lon": 57.499 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:cuisine:qloo:seafood", "name": "Seafood (demo)", "type": "urn:tag:cuisine:qloo" },
+        { "id": "urn:tag:setting:qloo:waterfront", "name": "Waterfront (demo)", "type": "urn:tag:setting:qloo" }
+      ]
+    },
+    {
+      "name": "Beach Road Kiosk (demo)", "entity_id": "00000000-0000-4000-8000-000000000041", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.52,
+      "properties": { "geocode": { "name": "Grand Baie", "city": "Grand Baie", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:cafe" } },
+      "location": { "lat": -20.011, "lon": 57.579 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:cafe", "name": "Cafe (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo" }
+      ]
+    },
+    {
+      "name": "Sand Lane Snack Cafe (demo)", "entity_id": "00000000-0000-4000-8000-000000000042", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.49,
+      "properties": { "geocode": { "name": "Flic en Flac", "city": "Flic en Flac", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:cafe" } },
+      "location": { "lat": -20.282, "lon": 57.369 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:category:place:cafe", "name": "Cafe (demo)", "type": "urn:tag:category:place" },
+        { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo" }
+      ]
+    },
+    {
+      "name": "Crater Coffee Corner (demo)", "entity_id": "00000000-0000-4000-8000-000000000043", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.46,
+      "properties": { "geocode": { "name": "Chamarel", "city": "Chamarel VCA", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:cafe" } },
+      "location": { "lat": -20.431, "lon": 57.394 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:genre:place:restaurant:cafe", "name": "Cafe (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:setting:qloo:nature", "name": "Nature (demo)", "type": "urn:tag:setting:qloo" }
+      ]
+    },
+    {
+      "name": "Plateau Fish and Dholl Puri (demo)", "entity_id": "00000000-0000-4000-8000-000000000044", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.51,
+      "properties": { "geocode": { "name": "Curepipe", "city": "Curepipe", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant" } },
+      "location": { "lat": -20.32, "lon": 57.524 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:cuisine:qloo:street_food", "name": "Street food (demo)", "type": "urn:tag:cuisine:qloo" },
+        { "id": "urn:tag:cuisine:qloo:seafood", "name": "Seafood (demo)", "type": "urn:tag:cuisine:qloo" }
+      ]
+    },
+    {
+      "name": "Old Pier Cafe (demo)", "entity_id": "00000000-0000-4000-8000-000000000045", "type": "urn:entity", "subtype": "urn:entity:place", "popularity": 0.45,
+      "properties": { "geocode": { "name": "Mahébourg", "city": "Mahébourg", "country_code": "MU" }, "primary_genre": { "id": "urn:tag:genre:place:restaurant:cafe" } },
+      "location": { "lat": -20.409, "lon": 57.704 },
+      "tags": [
+        { "id": "urn:tag:genre:place:restaurant", "name": "Restaurant (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:genre:place:restaurant:cafe", "name": "Cafe (demo)", "type": "urn:tag:genre:place" },
+        { "id": "urn:tag:setting:qloo:waterfront", "name": "Waterfront (demo)", "type": "urn:tag:setting:qloo" }
       ]
     }
   ],

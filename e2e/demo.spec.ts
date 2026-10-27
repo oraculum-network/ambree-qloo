@@ -52,7 +52,13 @@ test("chip → plan shows 4 day cards and speech with ≤2 sentences that mentio
   await page.goto("/");
   await page.getByRole("button", { name: "Bob Marley · seafood · Life of Pi" }).click();
   await expect(page.locator("#day .card")).toHaveCount(4);
-  await expect(page.locator("#day .card-slot")).toHaveText(["Morning", "Lunch", "Afternoon", "Evening"]);
+  await expect(page.locator("#day .card-slot")).toHaveText(["Morning · Thing to do", "Lunch · Restaurant", "Afternoon · Thing to do", "Evening · Bar"]);
+  // One region: the area line, and each later stop's distance from the first.
+  await expect(page.locator("#area")).toHaveText(/^A day around .+: every stop within 15 km of the first\.$/);
+  for (const line of (await page.locator("#day .card-town").allTextContents()).slice(1)) expect(line).toMatch(/ · \d+(\.\d)? km from the first stop$/);
+  // The seafood taste shaped lunch.
+  await expect(page.locator("#day .card").nth(1).locator(".card-tags li").first()).toHaveText("Seafood (demo)");
+  await expect(page.locator("#day")).not.toContainText("VCA");
   for (const name of await page.locator("#day .card-name").allTextContents()) expect(name).toMatch(/\(demo\)$/);
   const speech = (await page.locator("#speech").textContent()) ?? "";
   expect(speech.endsWith(DEMO_SENTENCE), speech).toBe(true);
@@ -125,6 +131,10 @@ test("live cards: no score line when Qloo sent no affinity, no town line when it
   await expect(cards.nth(1).locator(".card-town")).toHaveCount(0);
   await expect(cards.nth(1).locator(".card-score")).toHaveText("Qloo affinity 0.42");
   await expect(page.locator("#day")).not.toContainText("null");
+  // A reply without `kind`, `area` or km_from_start (no region) shows neither, and nothing "undefined".
+  await expect(page.locator("#area")).toBeHidden();
+  await expect(cards.nth(0).locator(".card-slot")).toHaveText("Morning");
+  await expect(page.locator("#day")).not.toContainText("undefined");
   await expect(page.locator(".hood-turn .badge").first()).toHaveText("Live Qloo");
 });
 

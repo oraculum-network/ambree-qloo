@@ -221,6 +221,9 @@ const NOUN: Record<Pool, [one: string, many: string]> = {
   bars: ["bar", "bars"],
 };
 
+/** A food word that already names a place ("No cafe came up", not "No cafe place came up"). */
+const PLACE_WORD = /\b(cafe|café|coffee shop|bar|pub|bakery|bistro|diner|restaurant|brasserie|tea ?room)s?$/i;
+
 export function ordinal(n: number): string {
   const teen = n % 100 >= 11 && n % 100 <= 13;
   const suffix = teen ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
@@ -240,7 +243,7 @@ export function whyFor({ c, match, missed }: Pick, names: SignalNames, tastes: s
   const ranked = c.of === 1 ? `it is the only ${one} Qloo returned ${c.scope}` : `Qloo ranks it ${ordinal(c.rank)} of ${c.of} ${many} ${c.scope}`;
   let why = fans.length ? `Fans of ${joinNames(fans)} tend to like it: ${ranked}.` : `${capitalise(ranked)}.`;
   if (match) why += match.food ? ` Tagged ${match.tag}, matching your ${match.food}.` : ` Tagged ${match.tag}.`;
-  if (missed) why += ` No ${missed} place came up nearby, so this is Qloo's top restaurant here.`;
+  if (missed) why += ` No ${missed}${PLACE_WORD.test(missed) ? "" : " place"} came up nearby, so this is Qloo's top restaurant here.`;
   if (c.hotel) why += ` It's a hotel's ${c.pool === "bars" ? "bar" : "restaurant"}: no stand-alone place was left nearby.`;
   return why;
 }

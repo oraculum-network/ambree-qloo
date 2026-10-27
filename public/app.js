@@ -22,6 +22,7 @@ const EXAMPLES = [
   [["film", "Moana"], ["food", "street food"], ["music", "Jack Johnson"]],
 ];
 const SLOT_LABEL = { morning: "Morning", lunch: "Lunch", afternoon: "Afternoon", evening: "Evening" };
+const KIND_LABEL = { thing_to_do: "Thing to do", restaurant: "Restaurant", bar: "Bar" };
 
 const $ = (id) => document.getElementById(id);
 const rows = $("rows");
@@ -147,11 +148,17 @@ function setSpeech(text) {
 
 function renderDay(out) {
   dayEl.replaceChildren();
+  const area = $("area");
+  area.hidden = !out.area;
+  area.textContent = out.area ? `A day around ${out.area.around}: every stop within ${out.area.radius_km} km of the first.` : "";
   for (const stop of out.day) {
     const li = el("li", "card");
-    li.append(el("p", "label card-slot", SLOT_LABEL[stop.slot] || stop.slot));
+    const slot = el("p", "label card-slot", SLOT_LABEL[stop.slot] || stop.slot);
+    if (KIND_LABEL[stop.kind]) slot.append(el("span", "card-kind", ` · ${KIND_LABEL[stop.kind]}`));
+    li.append(slot);
     li.append(el("h3", "card-name", stop.place));
-    if (stop.town) li.append(el("p", "card-town", stop.town));
+    const where = [stop.town, typeof stop.km_from_start === "number" ? `${stop.km_from_start} km from the first stop` : ""].filter(Boolean);
+    if (where.length) li.append(el("p", "card-town", where.join(" · ")));
     if (stop.tags.length) {
       const tags = el("ul", "card-tags");
       for (const t of stop.tags) tags.append(el("li", "", t));
@@ -210,6 +217,7 @@ async function plan() {
       const text = result.content?.[0]?.text || "Something went wrong.";
       setSpeech(text);
       dayEl.replaceChildren();
+      $("area").hidden = true;
       renderTurn(trace, null);
       return;
     }

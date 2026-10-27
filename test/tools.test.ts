@@ -455,7 +455,10 @@ describe("plan_day", () => {
       ]) {
         const out = ok(await planDay(planDayInput.parse({ tastes }), demoDeps()));
         expect(out.area, JSON.stringify(tastes)).toBeDefined();
-        expect(out.day.length, JSON.stringify(tastes)).toBeGreaterThanOrEqual(3);
+        expect(out.day.map((s) => s.kind), JSON.stringify(tastes)).toEqual(["thing_to_do", "restaurant", "thing_to_do", "bar"]);
+        // Every demo region has a seafood place, a cafe and street food, so lunch shows the food taste.
+        const food = tastes.find((t) => t.kind === "food")!.name;
+        expect(out.day[1]!.why, JSON.stringify(tastes)).toContain(`matching your ${food}.`);
         for (const s of out.day.slice(1)) expect(s.km_from_start!, s.place).toBeLessThanOrEqual(out.area!.radius_km);
       }
     });
