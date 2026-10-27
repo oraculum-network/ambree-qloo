@@ -543,6 +543,56 @@ describe("plan_day", () => {
     });
   });
 
+  describe("the region follows the tastes", () => {
+    // West coast and east coast, about 45 km apart.
+    const WEST = { lat: -20.29, lon: 57.36 };
+    const EAST = { lat: -20.27, lon: 57.78 };
+    const sight = (name: string, affinity: number, tags: string[], at: { lat: number; lon: number }, dLat = 0): MockPlace => ({ name, country: "MU", ...SIGHT, lat: at.lat + dLat, lon: at.lon, tags, affinity });
+    const mealsAt = (at: { lat: number; lon: number }, tag: string): MockPlace[] => [
+      { name: `${tag} Grill`, country: "MU", ...RESTAURANT, ...at, affinity: 0.5 },
+      { name: `${tag} Bar`, country: "MU", ...BAR, ...at, affinity: 0.5 },
+    ];
+    const tastes = planDayInput.parse({ tastes: [{ kind: "film", name: "Sea Film" }, { kind: "music", name: "Calm Singer" }] });
+    const searchTags = { "Sea Film": ["Ocean"], "Calm Singer": ["Meditative"] };
+    // Alone, Reef Cove scores best (a rare shared name and a good rank), then Quiet Temple, then Kayak Bay.
+    // Kayak Bay plus half of Quiet Temple's fit beats Reef Cove alone, so the day goes east;
+    // of that pair, Quiet Temple scores better alone, so it opens the day.
+    const places: MockPlace[] = [
+      sight("Kayak Bay", 0.95, ["Kayaking"], EAST),
+      sight("West Car Park", 0.9, ["Parking"], WEST, 0.02),
+      sight("Reef Cove", 0.85, ["Ocean"], WEST),
+      sight("Quiet Temple", 0.6, ["Meditation"], EAST, 0.05),
+      sight("East Fort", 0.5, ["Fortress", "Lagoon"], EAST, 0.01),
+      ...mealsAt(WEST, "West"),
+      ...mealsAt(EAST, "East"),
+    ];
+
+    it("a sight with a fitting neighbour beats a slightly better lone one; the better of the two opens the day", async () => {
+      mock = await startQlooMock({ searchTags, places });
+      const out = ok(await planDay(tastes, liveDeps(mock)));
+      expect(out.day.map((s) => s.place)).toEqual(["Quiet Temple", "East Grill", "Kayak Bay", "East Bar"]);
+      expect(out.area).toEqual({ around: "Quiet Temple", radius_km: 15 });
+    });
+
+    it("no extra calls for it: 2 lookups and 3 Insights calls; the same plan again is all cache hits", async () => {
+      mock = await startQlooMock({ searchTags, places });
+      const deps = liveDeps(mock);
+      const out = ok(await planDay(tastes, deps));
+      expect(out.qloo_calls.map((c) => c.endpoint)).toEqual(["/search", "/search", "/v2/insights", "/v2/insights", "/v2/insights"]);
+      const sent = mock.requests.length;
+      const again = ok(await planDay(tastes, deps));
+      expect(mock.requests).toHaveLength(sent);
+      expect(again.qloo_calls.every((c) => c.cached)).toBe(true);
+      expect(again.day).toEqual(out.day);
+    });
+
+    it("in a town the town is the region: the best fit opens the day, wherever its neighbours are", async () => {
+      mock = await startQlooMock({ searchTags, places });
+      const out = ok(await planDay({ ...tastes, town: "Anywhere" }, liveDeps(mock)));
+      expect(out.day[0]!.place).toBe("Reef Cove");
+    });
+  });
+
   describe("at most 10 Qloo calls a plan", () => {
     // One sight in the west and nothing else nearby: every optional call is wanted.
     const lonely: MockPlace[] = [

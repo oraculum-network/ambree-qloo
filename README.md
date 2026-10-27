@@ -35,8 +35,8 @@ things to do (`urn:tag:category:place:tourist_attraction`), restaurants (`urn:ta
 `/search` gives the tastes themselves: a film tagged "Swimming underwater" leans to a place tagged "Snorkeling", an
 artist tagged "Spiritual" to one tagged "Meditation", a book tagged "Nostalgic" to a place tagged the same. Media and
 place tags meet through ten themes (`src/tools/fit.ts`) and any shared name, and a tag carried by few of the places
-Qloo returned counts more than one on all of them. Qloo's order breaks ties. Qloo's `filter.location` keeps the
-day within 15 km of the first stop. Each stop's "why" is built from what Qloo returned for it: whose fans tend to
+Qloo returned counts more than one on all of them. Qloo's order breaks ties. The first stop is picked with what fits near it, so the
+day goes where the tastes find two good things to do, and Qloo's `filter.location` keeps the rest within 15 km of it. Each stop's "why" is built from what Qloo returned for it: whose fans tend to
 like it (the taste Qloo's `feature.explainability` credits most, when it sends one), its rank in that list, and the
 tags that tie it to a taste.
 Without a key the app does not pretend: it switches to clearly labelled synthetic demo data.

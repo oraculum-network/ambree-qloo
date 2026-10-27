@@ -188,6 +188,9 @@ export interface Fit {
   links: Link[];
 }
 
+/** Links counted per place: a place with hundreds of tags would otherwise win on many weak links. */
+export const MAX_LINKS = 3;
+
 const NO_FIT: Fit = { score: 0, links: [] };
 
 /**
@@ -207,7 +210,8 @@ export function fitAll(list: InsightsEntity[], profile: Profile): Map<string, Fi
     const scored = links
       .map((l) => ({ ...l, score: profile.get(l.key)!.weight * Math.log(n / df.get(l.key)!) }))
       .filter((l) => l.score > 0)
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_LINKS);
     out.set(e.entity_id, { score: scored.reduce((s, l) => s + l.score, 0), links: scored });
   }
   return out;

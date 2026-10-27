@@ -134,19 +134,51 @@ export const QLOO_ORDER_WEIGHT = 1;
 /** Ties toward variety: an afternoon of the morning's primary genre (two beaches) loses this much. */
 export const SAME_GENRE_COST = 0.5;
 
+/** A thing to do's fit; after a morning, the links it already showed count half. */
+function fitAfter(c: Candidate, after?: Candidate): number {
+  if (!after) return c.fit.score;
+  const shown = new Set(after.fit.links.map((l) => l.key));
+  return c.fit.links.reduce((s, l) => s + (shown.has(l.key) ? l.score / 2 : l.score), 0);
+}
+
 /** A thing to do's score; after a morning, the links it already showed count half and its genre costs SAME_GENRE_COST. */
 export function sightScore(c: Candidate, after?: Candidate): number {
   const order = QLOO_ORDER_WEIGHT * ((c.of - c.rank + 1) / c.of);
-  if (!after) return c.fit.score + order;
-  const shown = new Set(after.fit.links.map((l) => l.key));
-  const fit = c.fit.links.reduce((s, l) => s + (shown.has(l.key) ? l.score / 2 : l.score), 0);
-  const g = primaryGenre(c.e);
-  return fit + order - (g && g === primaryGenre(after.e) ? SAME_GENRE_COST : 0);
+  const g = after && primaryGenre(c.e);
+  return fitAfter(c, after) + order - (g && g === primaryGenre(after.e) ? SAME_GENRE_COST : 0);
 }
 
 /** Best first; Qloo's order on equal scores. */
 export function bySightScore(list: Candidate[], after?: Candidate): Candidate[] {
   return [...list].sort((a, b) => sightScore(b, after) - sightScore(a, after) || a.rank - b.rank);
+}
+
+/** How much of the best afternoon partner's fit counts towards choosing the first stop. */
+export const PARTNER_SHARE = 0.5;
+
+/**
+ * The order in which things to do may start the day. The region is where the tastes find
+ * the most, not just the one best place: each sight counts its own score plus
+ * PARTNER_SHARE of the best fit among the other sights within `km` of it (what the
+ * afternoon could add). Of the winner and that partner, the better one opens the day.
+ * With no tag links this is Qloo's order. No call is made for it.
+ */
+export function byFirstStop(list: Candidate[], km: number | undefined): Candidate[] {
+  const partnerOf = (m: Candidate) => {
+    const at = pointOf(m.e);
+    if (km === undefined || !at) return undefined;
+    const near: Near = { ...at, radiusM: km * 1000 };
+    return bySightScore(list.filter((a) => a !== m && pointOf(a.e) && within(a.e, near)).filter((a) => fitAfter(a, m) > 0), m)[0];
+  };
+  const score = new Map(list.map((c) => {
+    const p = partnerOf(c);
+    return [c, sightScore(c) + (p ? PARTNER_SHARE * fitAfter(p, c) : 0)];
+  }));
+  const order = [...list].sort((a, b) => score.get(b)! - score.get(a)! || a.rank - b.rank);
+  const best = order[0];
+  const partner = best && partnerOf(best);
+  if (!best || !partner || sightScore(partner) <= sightScore(best)) return order;
+  return [partner, ...order.filter((c) => c !== partner)];
 }
 
 /** Lexicographic: the first lower key wins. */
@@ -209,7 +241,8 @@ function eveningMatch(c: Candidate, prefs: Prefs): Match | undefined {
 /** The candidates for a slot, best first. Stand-alone places always come before hotels. The afternoon leans away from the morning. */
 export function rankForSlot(slot: Slot, pools: Record<Pool, Candidate[]>, prefs: Prefs, morning?: Candidate): Candidate[] {
   const aff = (c: Candidate) => -affinityOf(c.e);
-  if (slot === "morning") return bySightScore(pools.things);
+  // The planner has already put the things to do in first-stop order (byFirstStop).
+  if (slot === "morning") return pools.things;
   if (slot === "afternoon") return bySightScore(pools.nearThings, morning);
   if (slot === "lunch") {
     return [...pools.restaurants].sort(byKeys((c) => [c.hotel ? 1 : 0, cuisineMatch(c, prefs) ? 0 : 1, isMainlyBar(c.e) ? 1 : 0, aff(c)]));
@@ -328,8 +361,9 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
       const profile = profileOf(signals.map((s) => ({ input: s.input, kind: s.kind, tags: tagsOf.get(s.id) ?? [], ...(s.kind === "food" ? { cuisine: cuisineOf(s.id) } : {}) })));
       const fetch = (pool: Pool, sig: typeof mealSig, where: Where) => fetchPool(reply, pool, sig, where, names, profile);
 
-      // The thing to do on the island (or in the town) that best fits the tastes starts the day and sets the region.
-      const things = bySightScore(await fetch("things", thingsSig, { town: args.town }));
+      // The thing to do on the island (or in the town) that best fits the tastes, with what fits
+      // near it, starts the day and sets the region (a town is the region already).
+      const things = byFirstStop(await fetch("things", thingsSig, { town: args.town }), args.town ? undefined : REGION_KM);
       const first = things[0];
       const center = !args.town && first ? pointOf(first.e) : undefined;
       let km = REGION_KM;
