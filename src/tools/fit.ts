@@ -1,6 +1,6 @@
 // How well a thing to do fits the traveller's tastes, from Qloo's own tags on both sides.
-// /search returns each artist, film or book with its Qloo tags ("Spiritual", "Swimming
-// underwater", "Forest imagery", "Relaxed"...); every place carries its own ("Snorkeling",
+// /search returns each artist, film or book with its Qloo tags (genres, moods, themes such
+// as "Spiritual", "Ocean", "Relaxed"); every place carries its own ("Snorkeling",
 // "Meditation", "Hiking", "Serene"...). They live in different namespaces (media tags vs
 // place tags), so they meet through a few themes, plus any tag name both sides share.
 // A link counts more when few places in the list carry it (inverse document frequency),
@@ -28,7 +28,7 @@ export const THEMES: readonly Theme[] = [
   },
   {
     id: "nature",
-    taste: /\b(nature|forests?|forest imagery|environment\w*|conservation|wilderness|jungle|mountains?|outdoors?|hiking|ecolog\w*|trees?|wildlife)\b/,
+    taste: /\b(nature|forests?|woodlands?|environment\w*|conservation|wilderness|jungle|mountains?|outdoors?|hiking|ecolog\w*|trees?|wildlife)\b/,
     place: /\b(forest|hiking\w*|nature preserve|nature reserve|conservation\w*|birdwatching|botan\w*|national park|ecolog\w*|eco ?tourism|mountain climbing|trekking)\b/,
   },
   {
@@ -74,7 +74,8 @@ const FOOD_PLACE = /\b(markets?|market stalls|food stalls|food vendors|street ve
 /** Extra place words for a few cuisines (the cuisine's own words always count). */
 const CUISINE_PLACE: Record<string, RegExp> = {
   cafe: /\b(coffee\w*|tea|cafe|café)\b/,
-  seafood: /\b(seafood|fish\w*)\b/,
+  // Not "fishing": that is an activity, not a meal.
+  seafood: /\b(seafood|fish markets?|fishmongers?)\b/,
   street_food: /\b(street food|food stalls|street vendors|food vendors)\b/,
 };
 

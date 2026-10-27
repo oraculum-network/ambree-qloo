@@ -306,7 +306,7 @@ export function ordinal(n: number): string {
  * list it came from, and the tag that ties it to a food or music taste. Qloo describes what
  * groups of people tend to like, so it never says what this traveller will enjoy.
  */
-/** One tag link, said: "Snorkeling (Life of Pi: Swimming underwater)", "Romantic (also on Norwegian Wood)", "Market stalls (your street food)". */
+/** One tag link, said: "Snorkeling (Some Film: Scuba diving)", "Romantic (also on Some Book)", "Market stalls (your street food)". */
 function linkSaid(l: Link): string {
   const taste = spokenName(l.taste);
   if (l.food) return `${l.placeTag} (your ${taste})`;

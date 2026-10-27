@@ -23,8 +23,8 @@ const film = (tags: string[]) => ({ input: "Some Film", kind: "film", tags });
 
 describe("fit", () => {
   it("a theme weighs 1 for one taste tag, 1.5 for two, 2 for three or more; a music taste adds 1 to music", () => {
-    const one = profileOf([film(["Swimming underwater"])]);
-    expect(one.get("theme:sea")).toMatchObject({ weight: 1, taste: "Some Film", tasteTag: "Swimming underwater" });
+    const one = profileOf([film(["Scuba diving"])]);
+    expect(one.get("theme:sea")).toMatchObject({ weight: 1, taste: "Some Film", tasteTag: "Scuba diving" });
     expect(profileOf([film(["Ocean", "Island"])]).get("theme:sea")!.weight).toBe(1.5);
     expect(profileOf([film(["Ocean", "Island", "Canoe", "Lagoon", "Coral"])]).get("theme:sea")!.weight).toBe(2);
     expect(profileOf([{ input: "Some Band", kind: "music", tags: [] }]).get("theme:music")).toMatchObject({ weight: 1, taste: "Some Band" });
@@ -45,7 +45,7 @@ describe("fit", () => {
   });
 
   it("a link counts more the fewer places carry it, and nothing when every place does", () => {
-    const p = profileOf([film(["Swimming underwater", "Spirituality"])]);
+    const p = profileOf([film(["Scuba diving", "Spirituality"])]);
     const list = [
       place("Temple", ["Meditation", "Swimming"]),
       place("Beach A", ["Snorkeling"]),

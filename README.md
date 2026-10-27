@@ -32,7 +32,7 @@ affinity for the traveller's own signals (`signal.interests.entities` from `/sea
 things to do (`urn:tag:category:place:tourist_attraction`), restaurants (`urn:tag:genre:place:restaurant`) and bars
 (`urn:tag:category:place:bar`); `properties.primary_genre` keeps hotels out of the sights; a cuisine tag such as
 `urn:tag:cuisine:qloo:seafood` picks lunch. The things to do are the ones whose Qloo tags best echo the tags Qloo's
-`/search` gives the tastes themselves: a film tagged "Swimming underwater" leans to a place tagged "Snorkeling", an
+`/search` gives the tastes themselves: a film tagged "Scuba diving" leans to a place tagged "Snorkeling", an
 artist tagged "Spiritual" to one tagged "Meditation", a book tagged "Nostalgic" to a place tagged the same. Media and
 place tags meet through ten themes (`src/tools/fit.ts`) and any shared name, and a tag carried by few of the places
 Qloo returned counts more than one on all of them. Qloo's order breaks ties. The first stop is picked with what fits near it, so the
