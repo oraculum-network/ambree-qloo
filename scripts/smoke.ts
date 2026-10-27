@@ -1,5 +1,5 @@
 // npm run smoke: the live check once a Qloo key exists. Exactly 3 calls, one per endpoint:
-//   1. GET /search      ?query=Kaya&types=urn:entity:artist&take=1
+//   1. GET /search      ?query=Bob%20Marley&types=urn:entity:artist&take=1
 //   2. GET /v2/tags     ?filter.query=beach&take=3
 //   3. GET /v2/insights ?filter.type=urn:entity:place&signal.interests.entities=<id from 1>
 //                       &<the app's MU_FILTER>&feature.explainability=true&take=5
@@ -144,7 +144,7 @@ async function main(): Promise<number> {
   let failed = false;
 
   // 1. Search.
-  const s = await call(base, key, "search", searchParams("Kaya", "urn:entity:artist", 1));
+  const s = await call(base, key, "search", searchParams("Bob Marley", "urn:entity:artist", 1));
   const searchHits = s.ok ? SearchResponse.parse(s.body).results : [];
   if (s.ok) out(`OK /search 200 ${searchHits.length} results`);
   else failed = true;

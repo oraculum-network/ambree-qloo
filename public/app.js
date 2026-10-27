@@ -17,9 +17,9 @@ const KINDS = [
 ];
 const MAX_TASTES = 6;
 const EXAMPLES = [
-  [["music", "Kaya"], ["food", "seafood"], ["film", "Life of Pi"]],
+  [["music", "Bob Marley"], ["food", "seafood"], ["film", "Life of Pi"]],
   [["music", "Miles Davis"], ["food", "cafe"], ["book", "Norwegian Wood"]],
-  [["film", "Moana"], ["food", "street food"], ["game", "Animal Crossing"]],
+  [["film", "Moana"], ["food", "street food"], ["music", "Jack Johnson"]],
 ];
 const SLOT_LABEL = { morning: "Morning", lunch: "Lunch", afternoon: "Afternoon", evening: "Evening" };
 
@@ -62,7 +62,7 @@ function addRow(kind = "music", name = "") {
   input.type = "text";
   input.maxLength = 60;
   input.value = name;
-  input.placeholder = "e.g. Kaya, Amélie, street food";
+  input.placeholder = "e.g. Bob Marley, Life of Pi, street food";
   input.setAttribute("aria-label", `Taste ${n} name`);
   const remove = el("button", "ghost remove", "Remove");
   remove.type = "button";

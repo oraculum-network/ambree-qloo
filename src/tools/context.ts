@@ -40,7 +40,7 @@ export const SEARCH_TYPES: Record<Exclude<TasteKind, "food">, string> = {
 
 export const taste = z.object({
   kind: z.enum(TASTE_KINDS).describe("What kind of taste: music (an artist), film, tv, book, podcast, game, brand, person, food (a cuisine or dish), or place."),
-  name: z.string().trim().min(1).max(60).describe("The name as the traveller said it, e.g. 'Kaya', 'Amélie', 'street food'."),
+  name: z.string().trim().min(1).max(60).describe("The name as the traveller said it, e.g. 'Bob Marley', 'Life of Pi', 'street food'."),
 });
 export const tastesInput = z.array(taste).min(1).max(6).describe("1 to 6 things the traveller likes.");
 export type Taste = z.infer<typeof taste>;

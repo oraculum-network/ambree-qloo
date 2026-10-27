@@ -49,7 +49,7 @@ test("chip → plan shows 4 day cards and speech with ≤2 sentences that mentio
   mkdirSync(SHOTS, { recursive: true });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Kaya · seafood · Life of Pi" }).click();
+  await page.getByRole("button", { name: "Bob Marley · seafood · Life of Pi" }).click();
   await expect(page.locator("#day .card")).toHaveCount(4);
   await expect(page.locator("#day .card-slot")).toHaveText(["Morning", "Lunch", "Afternoon", "Evening"]);
   for (const name of await page.locator("#day .card-name").allTextContents()) expect(name).toMatch(/\(demo\)$/);
@@ -87,7 +87,7 @@ test("360 px: no horizontal overflow", async ({ page }) => {
   await page.goto("/");
   await noHorizontalOverflow(page);
   await expect(page.locator("#hood")).not.toHaveAttribute("open", "");
-  await page.getByRole("button", { name: "Moana · street food · Animal Crossing" }).click();
+  await page.getByRole("button", { name: "Moana · street food · Jack Johnson" }).click();
   await expect(page.locator("#day .card")).toHaveCount(4);
   await page.locator("#hood summary").click();
   await expect(page.locator(".hood-turn")).toHaveCount(1);
@@ -97,7 +97,7 @@ test("360 px: no horizontal overflow", async ({ page }) => {
 test("keyboard: Enter submits", async ({ page }) => {
   await page.goto("/");
   const name = page.getByLabel("Taste 1 name");
-  await name.fill("Kaya");
+  await name.fill("Bob Marley");
   await name.press("Enter");
   await expect(page.locator("#day .card")).toHaveCount(4);
   await expect(page.locator("#speech")).toContainText("demo data");

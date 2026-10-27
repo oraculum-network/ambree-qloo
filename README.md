@@ -56,7 +56,7 @@ npx @modelcontextprotocol/inspector
 ```
 
 Choose transport "Streamable HTTP" and URL `https://qloo.ambree.ai/mcp` (or `http://localhost:8080/mcp`), then call
-`plan_day` with `{"tastes":[{"kind":"music","name":"Kaya"},{"kind":"food","name":"seafood"}]}`.
+`plan_day` with `{"tastes":[{"kind":"music","name":"Bob Marley"},{"kind":"food","name":"seafood"}]}`.
 
 The server is stateless: each POST is answered on its own, so a raw JSON-RPC `tools/call` works without a session.
 Send `Accept: application/json, text/event-stream` and `MCP-Protocol-Version: 2025-11-25`.
