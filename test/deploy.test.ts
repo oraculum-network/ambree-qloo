@@ -104,12 +104,20 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function storeKey(stdin: string, opts: { secretExists?: boolean } = {}): Promise<Run> {
+// The command deploy-qloo.sh sends over ssh, minus ssh and sudo: the local shell builds the
+// remote command line (the script %q-quoted into argv, KUBECTL two words), the remote shell
+// runs it, and the key arrives on stdin.
+const REMOTE_FORM =
+  'remote="env KUBECTL=\'bash $FAKE_KUBECTL\' bash -c $(printf %q "$(cat deploy/store-key.sh)") store-key"; exec bash -c "$remote"';
+
+function storeKey(stdin: string, opts: { secretExists?: boolean; remoteForm?: boolean } = {}): Promise<Run> {
   const log = join(dir, "argv.log");
   writeFileSync(log, "");
   return new Promise((resolve, reject) => {
-    const env = scrubbedEnv({ KUBECTL: FAKE, FAKE_LOG: log, FAKE_DIR: dir, FAKE_SECRET_EXISTS: opts.secretExists ? "1" : "0" });
-    const child = spawn("bash", ["deploy/store-key.sh"], { cwd: ROOT, env, stdio: ["pipe", "pipe", "pipe"] });
+    const fake = { FAKE_LOG: log, FAKE_DIR: dir, FAKE_SECRET_EXISTS: opts.secretExists ? "1" : "0" };
+    const env = scrubbedEnv(opts.remoteForm ? { ...fake, FAKE_KUBECTL: FAKE } : { ...fake, KUBECTL: FAKE });
+    const args = opts.remoteForm ? ["-c", REMOTE_FORM] : ["deploy/store-key.sh"];
+    const child = spawn("bash", args, { cwd: ROOT, env, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (c: Buffer) => (stdout += c.toString("utf8")));
@@ -153,6 +161,25 @@ describe("deploy/store-key.sh", () => {
     expect(r.calls.filter((c) => c === "-n qloo create secret generic qloo-api")).toEqual([]);
     expect(r.calls).toContain("-n qloo patch secret qloo-api --patch-file /dev/stdin");
     expect(r.createStdin).toBe(SENTINEL_KEY);
+  });
+
+  it("stdin that is not a terminal: the first line is the key, the rest is ignored", async () => {
+    // A pipe is never a terminal, so there is no prompt; the Keychain's `-w` output is one line.
+    const r = await storeKey(`${SENTINEL_KEY}\nsecond-line-not-a-key\n`);
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stderr).not.toContain("hidden");
+    expect(r.createStdin).toBe(SENTINEL_KEY);
+    expect(r.calls.join("\n") + r.stdout + r.stderr + (r.patchStdin ?? "")).not.toContain("second-line-not-a-key");
+  });
+
+  it("the ssh form: script in argv, KUBECTL as two words, key on stdin only", async () => {
+    const r = await storeKey(`${SENTINEL_KEY}\n`, { remoteForm: true });
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.createStdin).toBe(SENTINEL_KEY);
+    expect(r.calls).toContain("-n qloo patch secret qloo-api --patch-file /dev/stdin");
+    expect(r.calls.join("\n")).not.toContain(SENTINEL_KEY);
+    expect(r.stdout + r.stderr).not.toContain(SENTINEL_KEY);
+    expect(r.stdout).toContain("Next: bash ");
   });
 
   it("refuses empty input and calls nothing", async () => {
