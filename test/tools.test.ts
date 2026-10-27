@@ -341,6 +341,19 @@ describe("plan_day", () => {
     }
   });
 
+  it("a live 200 that breaks the contract → isError 'couldn't read', no demo fallback, mismatch paths logged", async () => {
+    // What the live pod did on 27 Oct before the contract fix, with an object where /search has its list.
+    mock = await startQlooMock();
+    mock.setHandler((_req, res) => json(res, 200, { results: { entities: [] } }));
+    const logs: LogRecord[] = [];
+    const r = await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Bob Marley" }, { kind: "food", name: "seafood" }] }), liveDeps(mock, logs));
+    expect(r).toEqual({ ok: false, message: "Qloo sent an answer I couldn't read, so I can't do that right now." });
+    expect(logs).toContainEqual({ level: "warn", event: "qloo_shape_mismatch", endpoint: "/search", mismatches: ["$.results expected array, got object"] });
+    expect(logs).toContainEqual({ level: "warn", event: "qloo_error", kind: "bad_response", status: 200 });
+    expect(logs.some((l) => l.event === "qloo_fallback")).toBe(false);
+    expect(insightsCalls(mock)).toHaveLength(0);
+  });
+
   it("a live 401 falls back to demo data, labelled", async () => {
     mock = await startQlooMock();
     mock.setHandler((_q, res) => json(res, 401, { code: 401, reason: "Unauthorized" }));
