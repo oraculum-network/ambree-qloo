@@ -1,6 +1,7 @@
 // Tool dependencies for tests: demo (the fixtures) or live against a local mock Qloo.
 
 import type { ServerResponse } from "node:http";
+import { distanceKm, parsePoint } from "../../src/geo.ts";
 import type { LogRecord } from "../../src/log.ts";
 import { createLiveTransport, createQloo } from "../../src/qloo/client.ts";
 import { type DemoData, createDemoTransport, loadDemoData } from "../../src/qloo/fixtures.ts";
@@ -60,25 +61,18 @@ export function mockEntity(p: MockPlace, i: number) {
   };
 }
 
-/** Kilometres between two points (haversine), for the mock's radius filter. */
-function km(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
-  const rad = Math.PI / 180;
-  const h = Math.sin(((b.lat - a.lat) * rad) / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(((b.lon - a.lon) * rad) / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.sqrt(h));
-}
-
 /** The script's places that pass filter.tags (any listed tag) and filter.location + radius, as Qloo applies them. */
 export function mockInsights(places: MockPlace[], q: Record<string, string>) {
   const filterTags = (q["filter.tags"] ?? "").split(",").filter(Boolean);
-  const point = /^POINT\((-?[\d.]+) (-?[\d.]+)\)$/.exec(q["filter.location"] ?? "");
+  const center = parsePoint(q["filter.location"]);
   const radius = Number(q["filter.location.radius"] ?? "0");
   return places
     .map((p, i) => ({ p, e: mockEntity(p, i) }))
     .filter(({ p, e }) => {
       if (filterTags.length && !e.tags.some((t) => filterTags.includes(t.id))) return false;
-      if (point && radius) {
+      if (center && radius) {
         if (p.lat === undefined || p.lon === undefined) return false;
-        if (km({ lat: Number(point[2]), lon: Number(point[1]) }, { lat: p.lat, lon: p.lon }) * 1000 > radius) return false;
+        if (distanceKm(center, { lat: p.lat, lon: p.lon }) * 1000 > radius) return false;
       }
       return true;
     })

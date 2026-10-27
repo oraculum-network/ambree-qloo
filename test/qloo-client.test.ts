@@ -1,6 +1,7 @@
 // The live Qloo transport against a local mock server (never the real API).
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { distanceKm, parsePoint } from "../src/geo.ts";
 import type { LogRecord } from "../src/log.ts";
 import { type QlooTransport, QlooError, createLiveTransport, createQloo, fallsBack, PLACE_TYPE } from "../src/qloo/client.ts";
 import { type MockServer, json, queryOf, startMockServer } from "./helpers/mock-server.ts";
@@ -72,6 +73,23 @@ describe("requests", () => {
       "feature.explainability": "true",
       take: "9",
     });
+  });
+
+  it("a radius goes as filter.location=POINT(lon lat) and filter.location.radius in metres, as live Qloo took it", async () => {
+    await liveQloo().reply().insights({ type: PLACE_TYPE, entities: ["e1"], filterTags: ["urn:tag:category:place:bar"], countryCode: "MU", near: { lat: -20.45, lon: 57.33, radiusM: 12000.4 }, take: 25 });
+    const q = queryOf(mock.requests[0]!);
+    expect(q).toMatchObject({ "filter.tags": "urn:tag:category:place:bar", "filter.location": "POINT(57.33 -20.45)", "filter.location.radius": "12000", "filter.geocode.country_code": "MU" });
+    expect(mock.requests[0]!.url).toContain("filter.location=POINT%2857.33+-20.45%29");
+  });
+
+  it("geo: distances in km and the WKT point Qloo takes", () => {
+    expect(parsePoint("POINT(57.33 -20.45)")).toEqual({ lon: 57.33, lat: -20.45 });
+    expect(parsePoint("POINT(57 -20)")).toEqual({ lon: 57, lat: -20 });
+    expect(parsePoint("57.33,-20.45")).toBeUndefined();
+    expect(parsePoint(undefined)).toBeUndefined();
+    // 0.1 degree of latitude is about 11.1 km anywhere.
+    expect(distanceKm({ lat: -20.3, lon: 57.4 }, { lat: -20.4, lon: 57.4 })).toBeCloseTo(11.12, 1);
+    expect(distanceKm({ lat: -20.3, lon: 57.4 }, { lat: -20.3, lon: 57.4 })).toBe(0);
   });
 
   it("search sends query, types and take", async () => {

@@ -2,11 +2,14 @@
 // Qloo Insights call per kind of stop (things to do, restaurants, bars; see places.ts) ->
 // a day of 3 or 4 stops: morning and afternoon are things to do, lunch a restaurant, the
 // evening a bar or restaurant. A hotel is never a sight; for a meal it comes after every
-// stand-alone place. No place is used twice.
+// stand-alone place. No place is used twice. The first stop is the best thing to do on the
+// island; every later call asks Qloo for places within REGION_KM of it (filter.location),
+// widened once to WIDE_KM when a slot would be empty.
 
 import { z } from "zod";
 import { PLACE_TYPE, type QlooReply } from "../qloo/client.ts";
-import { type InsightsEntity, affinityOf } from "../qloo/contract.ts";
+import { distanceKm } from "../geo.ts";
+import { type InsightsEntity, affinityOf, pointOf } from "../qloo/contract.ts";
 import { type ToolDeps, type ToolOutcome, modeOut, noticeOut, qlooCallsOut, qlooFailure, tastesInput } from "./context.ts";
 import { FILTER_TAGS, cuisineOf, cuisineTag, isBar, isHotel, isMainlyBar, isRestaurant, isThingToDo, liveMusicTag } from "./places.ts";
 import { type Signal, type Unresolved, resolveAll, signalOut, unresolvedOut } from "./resolve-tastes.ts";
@@ -18,6 +21,9 @@ export type Slot = (typeof SLOTS)[number];
 const RELAXED: Slot[] = ["morning", "lunch", "evening"];
 /** Results per Insights call (live returned 20 to 25 for each filter). */
 export const PLAN_TAKE = 25;
+/** After the first stop the day stays within this many km of it; once widened to WIDE_KM if a slot is empty. */
+export const REGION_KM = 15;
+export const WIDE_KM = 25;
 
 export const STOP_KINDS = ["thing_to_do", "restaurant", "bar"] as const;
 export type StopKind = (typeof STOP_KINDS)[number];
@@ -35,6 +41,7 @@ export const stopOut = z.object({
   place: z.string(),
   place_id: z.string(),
   town: z.string().optional(),
+  km_from_start: z.number().optional().describe("Straight-line kilometres from the day's first stop."),
   affinity: z.number().describe("Qloo's affinity score, 0 to 1 (0 when Qloo sent none)."),
   tags: z.array(z.string()),
   why: z.string().describe("Why Qloo suggests this stop for these tastes."),
@@ -42,10 +49,14 @@ export const stopOut = z.object({
 });
 export type Stop = z.infer<typeof stopOut>;
 
+export const areaOut = z.object({ around: z.string(), radius_km: z.number() });
+export type Area = z.infer<typeof areaOut>;
+
 export const planDayOutput = z.object({
   mode: modeOut,
   notice: noticeOut,
   day: z.array(stopOut).describe("The stops in order."),
+  area: areaOut.optional().describe("The region the day keeps to: around the first stop, within radius_km. Unset when a town was given."),
   signals: z.array(signalOut),
   unresolved: z.array(unresolvedOut),
   qloo_calls: qlooCallsOut,
@@ -53,7 +64,8 @@ export const planDayOutput = z.object({
 });
 export type PlanDayOutput = z.infer<typeof planDayOutput>;
 
-type Pool = "things" | "restaurants" | "bars";
+/** things: the island (or the town), for the first stop; nearThings: around it, for the afternoon. */
+type Pool = "things" | "nearThings" | "restaurants" | "bars";
 
 /** A place from one pool's Insights call. */
 export interface Candidate {
@@ -63,21 +75,39 @@ export interface Candidate {
   hotel: boolean;
 }
 
-const POOL_FILTER: Record<Pool, string> = { things: FILTER_TAGS.thingsToDo, restaurants: FILTER_TAGS.restaurant, bars: FILTER_TAGS.bar };
+const POOL_FILTER: Record<Pool, string> = { things: FILTER_TAGS.thingsToDo, nearThings: FILTER_TAGS.thingsToDo, restaurants: FILTER_TAGS.restaurant, bars: FILTER_TAGS.bar };
 const POOL_KEEPS: Record<Pool, (e: InsightsEntity) => boolean> = {
   things: isThingToDo,
+  nearThings: isThingToDo,
   restaurants: isRestaurant,
   bars: (e) => isBar(e) || isRestaurant(e),
 };
 
+type Near = { lat: number; lon: number; radiusM: number };
+/** Where an Insights call looks: a town, or a radius around the day's first stop. */
+interface Where {
+  town?: string;
+  near?: Near;
+}
+
+/** Inside the radius, or no radius; a place with no coordinates can't be checked and is kept. */
+function within(e: InsightsEntity, near: Near | undefined): boolean {
+  const at = near && pointOf(e);
+  return !near || !at || distanceKm(near, at) * 1000 <= near.radiusM;
+}
+
 /** One Insights call for a pool; places that don't fit it are dropped; best affinity first (Qloo's order on ties). */
-async function fetchPool(reply: QlooReply, pool: Pool, signals: { entities: string[]; tags: string[] }, town: string | undefined, names: SignalNames): Promise<Candidate[]> {
-  const { entities } = await fetchInMU(reply, { type: PLACE_TYPE, ...signals, filterTags: [POOL_FILTER[pool]], town, take: PLAN_TAKE });
+async function fetchPool(reply: QlooReply, pool: Pool, signals: { entities: string[]; tags: string[] }, where: Where, names: SignalNames): Promise<Candidate[]> {
+  const { entities } = await fetchInMU(reply, { type: PLACE_TYPE, ...signals, filterTags: [POOL_FILTER[pool]], ...where, take: PLAN_TAKE });
   const signalTags = new Set(signals.tags);
-  return entities
-    .filter(POOL_KEEPS[pool])
-    .map((e) => ({ e, place: toRanked(e, names, signalTags), pool, hotel: isHotel(e) }))
-    .sort((a, b) => affinityOf(b.e) - affinityOf(a.e));
+  return (
+    entities
+      .filter(POOL_KEEPS[pool])
+      // Qloo may ignore a filter it doesn't apply, so the radius is checked here too.
+      .filter((e) => within(e, where.near))
+      .map((e) => ({ e, place: toRanked(e, names, signalTags), pool, hotel: isHotel(e) }))
+      .sort((a, b) => affinityOf(b.e) - affinityOf(a.e))
+  );
 }
 
 /** Lexicographic: the first lower key wins. */
@@ -135,7 +165,8 @@ function eveningMatch(c: Candidate, prefs: Prefs): Match | undefined {
 /** The candidates for a slot, best first. Stand-alone places always come before hotels. */
 export function rankForSlot(slot: Slot, pools: Record<Pool, Candidate[]>, prefs: Prefs): Candidate[] {
   const aff = (c: Candidate) => -affinityOf(c.e);
-  if (slot === "morning" || slot === "afternoon") return pools.things;
+  if (slot === "morning") return pools.things;
+  if (slot === "afternoon") return pools.nearThings;
   if (slot === "lunch") {
     return [...pools.restaurants].sort(byKeys((c) => [c.hotel ? 1 : 0, cuisineMatch(c, prefs) ? 0 : 1, isMainlyBar(c.e) ? 1 : 0, aff(c)]));
   }
@@ -195,6 +226,7 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
   let signals: Signal[];
   let unresolved: Unresolved[];
   let day: Stop[] = [];
+  let area: Area | undefined;
   try {
     ({ signals, unresolved } = await resolveAll(reply, args.tastes, deps.log));
     if (signals.length) {
@@ -208,19 +240,48 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
       // The food tags steer the meal calls only; sights follow the other tastes when there are any.
       const mealSig = { entities, tags };
       const thingsSig = entities.length ? { entities, tags: [] } : mealSig;
-      const [things, restaurants, bars] = await Promise.all([
-        fetchPool(reply, "things", thingsSig, args.town, names),
-        fetchPool(reply, "restaurants", mealSig, args.town, names),
-        fetchPool(reply, "bars", mealSig, args.town, names),
-      ]);
-      day = fillSlots(slots, { things, restaurants, bars }, prefs).map((pick) => {
+
+      // The best thing to do on the island (or in the town) starts the day and sets the region.
+      const things = await fetchPool(reply, "things", thingsSig, { town: args.town }, names);
+      const first = things[0];
+      const center = !args.town && first ? pointOf(first.e) : undefined;
+      let km = REGION_KM;
+      const where = (): Where => (center ? { near: { ...center, radiusM: km * 1000 } } : { town: args.town });
+      const pools: Record<Pool, Candidate[]> = { things, nearThings: things, restaurants: [], bars: [] };
+      const load = (which: Pool[]) =>
+        Promise.all(
+          which.map(async (pool) => {
+            if (pool === "nearThings") {
+              // The island list often has a second sight nearby; else ask Qloo around the first stop.
+              const near = where().near;
+              const local = things.filter((c) => c !== first && within(c.e, near));
+              pools.nearThings = local.length || !near ? local : await fetchPool(reply, "nearThings", thingsSig, where(), names);
+            } else {
+              pools[pool] = await fetchPool(reply, pool, mealSig, where(), names);
+            }
+          }),
+        );
+      await load(["restaurants", "bars", ...(slots.includes("afternoon") && center ? (["nearThings"] as const) : [])]);
+      let picks = fillSlots(slots, pools, prefs);
+      // Too few places nearby: widen once, for the slots left empty.
+      const empty = slots.filter((s) => s !== "morning" && !picks.some((p) => p.slot === s));
+      if (center && empty.length) {
+        km = WIDE_KM;
+        await load([...new Set(empty.flatMap((s): Pool[] => (s === "lunch" ? ["restaurants"] : s === "afternoon" ? ["nearThings"] : ["bars", "restaurants"])))]);
+        picks = fillSlots(slots, pools, prefs);
+      }
+      if (center && first) area = { around: first.place.town ?? first.place.name, radius_km: km };
+
+      day = picks.map((pick) => {
         const { slot, c } = pick;
+        const at = pointOf(c.e);
         return {
           slot,
           kind: kindOf(slot, c),
           place: c.place.name,
           place_id: c.place.id,
           ...(c.place.town ? { town: c.place.town } : {}),
+          ...(center && at && c !== first ? { km_from_start: Math.round(distanceKm(center, at) * 10) / 10 } : {}),
           affinity: c.place.affinity,
           tags: c.place.tags,
           why: whyFor(pick),
@@ -256,6 +317,6 @@ export async function planDay(args: PlanDayInput, deps: ToolDeps): Promise<ToolO
   }
   return {
     ok: true,
-    value: { mode: reply.mode, ...(reply.notice ? { notice: reply.notice } : {}), day, signals, unresolved, qloo_calls: reply.calls, speech },
+    value: { mode: reply.mode, ...(reply.notice ? { notice: reply.notice } : {}), day, ...(area ? { area } : {}), signals, unresolved, qloo_calls: reply.calls, speech },
   };
 }

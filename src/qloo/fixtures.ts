@@ -4,10 +4,12 @@
 //  - /search: one synthetic entity per (query, type), named after the user's own text;
 //  - /v2/tags: substring match on the demo tag names;
 //  - /v2/insights: each demo place scored by a stable hash of (signal IDs, place ID), plus a
-//    bonus for matching tag signals, so different tastes give different days.
+//    bonus for matching tag signals, so different tastes give different days. It applies
+//    filter.tags, the town, the country and filter.location + radius as Qloo does.
 
 import { readFileSync } from "node:fs";
-import type { Endpoint, InsightsEntity, Tag } from "./contract.ts";
+import { distanceKm, parsePoint } from "../geo.ts";
+import { type Endpoint, type InsightsEntity, type Tag, pointOf } from "./contract.ts";
 import type { Params, QlooTransport } from "./client.ts";
 
 export const DEMO_FILE = new URL("../../fixtures/qloo-demo.json", import.meta.url);
@@ -101,6 +103,8 @@ export function createDemoTransport(data: DemoData = loadDemoData()): QlooTransp
     // Every demo place is in Mauritius, so a location query for anywhere else matches none.
     const location = p["filter.location.query"];
     const town = p["filter.geocode.name"];
+    const center = parsePoint(p["filter.location"]);
+    const radiusKm = Number(p["filter.location.radius"] ?? "0") / 1000;
     const take = Math.max(1, Math.min(50, Number(p.take ?? "20") || 20));
 
     const kept = pool.filter((e) => {
@@ -109,6 +113,10 @@ export function createDemoTransport(data: DemoData = loadDemoData()): QlooTransp
       if (location !== undefined && fold(location) !== "mauritius") return false;
       if (town && fold(g.city ?? g.name ?? "") !== fold(town)) return false;
       if (filterTags.length && !(e.tags ?? []).some((t) => t.id && filterTags.includes(t.id))) return false;
+      if (center && radiusKm > 0) {
+        const at = pointOf(e);
+        if (!at || distanceKm(center, at) > radiusKm) return false;
+      }
       return true;
     });
 

@@ -12,7 +12,7 @@ import { resolveTastes, resolveTastesInput } from "../src/tools/resolve-tastes.t
 import { sentences } from "../src/tools/speech.ts";
 import type { ServerResponse } from "node:http";
 import { FILTER_TAGS } from "../src/tools/places.ts";
-import { type MockPlace, demoDeps, liveDeps, qlooHandler, startQlooMock } from "./helpers/deps.ts";
+import { type MockPlace, demoDeps, liveDeps, mockInsights, qlooHandler, startQlooMock } from "./helpers/deps.ts";
 import { type MockServer, type RecordedRequest, json, queryOf, startMockServer } from "./helpers/mock-server.ts";
 import { liveInsightsBody, liveSearchBody, liveTagsBody } from "./helpers/shapes.ts";
 
@@ -343,6 +343,121 @@ describe("plan_day", () => {
       // Neither taste: the evening is the best bar.
       const plain = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "film", name: "Some Film" }] }), liveDeps(mock)));
       expect(plain.day.at(-1)).toMatchObject({ kind: "bar", place: "Cocktail Bar" });
+    });
+  });
+
+  describe("one region per day", () => {
+    // West coast (around -20.29, 57.36) and north coast (around -20.01, 57.58): about 40 km apart.
+    const WEST = { lat: -20.29, lon: 57.36 };
+    const at = (p: { lat: number; lon: number }, dLat = 0, dLon = 0) => ({ lat: p.lat + dLat, lon: p.lon + dLon });
+    const NORTH = { lat: -20.01, lon: 57.58 };
+    const music = planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }] });
+
+    it("after the first stop, every call asks for places within 15 km of it, and far places are not used", async () => {
+      mock = await startQlooMock({
+        places: [
+          { name: "West Beach", country: "MU", town: "Flic en Flac", ...SIGHT, ...WEST, affinity: 0.9 },
+          { name: "North Island", country: "MU", ...SIGHT, ...NORTH, affinity: 0.85 },
+          { name: "West Gardens", country: "MU", ...SIGHT, ...at(WEST, 0.05), affinity: 0.6 },
+          { name: "North Grill", country: "MU", ...RESTAURANT, ...NORTH, affinity: 0.99 },
+          { name: "West Grill", country: "MU", ...RESTAURANT, ...at(WEST, 0.01), affinity: 0.5 },
+          { name: "North Bar", country: "MU", ...BAR, ...NORTH, affinity: 0.99 },
+          { name: "West Bar", country: "MU", ...BAR, ...at(WEST, -0.02, 0.01), affinity: 0.4 },
+        ],
+      });
+      const out = ok(await planDay(music, liveDeps(mock)));
+      expect(out.day.map((s) => s.place)).toEqual(["West Beach", "West Grill", "West Gardens", "West Bar"]);
+      expect(out.area).toEqual({ around: "Flic en Flac", radius_km: 15 });
+      expect(out.day[0]!.km_from_start).toBeUndefined();
+      expect(out.day.slice(1).map((s) => s.km_from_start)).toEqual([1.1, 5.6, 2.5]);
+      const calls = insightsCalls(mock);
+      // The island-wide first call, then restaurants and bars around it; the afternoon came from the first list.
+      expect(calls).toHaveLength(3);
+      expect(calls[0]!["filter.location"]).toBeUndefined();
+      for (const q of calls.slice(1)) expect(q).toMatchObject({ "filter.location": "POINT(57.36 -20.29)", "filter.location.radius": "15000", "filter.geocode.country_code": "MU" });
+      expect(planDayOutput.parse(out)).toEqual(out);
+    });
+
+    it("no second sight in the first list nearby: the afternoon asks Qloo around the first stop", async () => {
+      // The mock returns at most `take` places per call, so 25 far sights hide the near one from the island-wide call.
+      const far = Array.from({ length: 25 }, (_, i): MockPlace => ({ name: `Far Sight ${i}`, country: "MU", ...SIGHT, ...NORTH, affinity: 0.8 - i / 100 }));
+      const places: MockPlace[] = [
+        { name: "West Beach", country: "MU", ...SIGHT, ...WEST, affinity: 0.9 },
+        ...far,
+        { name: "West Gardens", country: "MU", ...SIGHT, ...at(WEST, 0.05), affinity: 0.1 },
+        { name: "West Grill", country: "MU", ...RESTAURANT, ...WEST, affinity: 0.5 },
+        { name: "West Bar", country: "MU", ...BAR, ...WEST, affinity: 0.4 },
+      ];
+      mock = await startQlooMock();
+      mock.setHandler((req, res) => {
+        const q = queryOf(req);
+        if (req.url.startsWith("/v2/insights")) return json(res, 200, { results: { entities: mockInsights(places, q).slice(0, Number(q.take)) } });
+        return qlooHandler({})(req, res);
+      });
+      const out = ok(await planDay(music, liveDeps(mock)));
+      expect(out.day.map((s) => s.place)).toEqual(["West Beach", "West Grill", "West Gardens", "West Bar"]);
+      const sightCalls = insightsCalls(mock).filter((q) => q["filter.tags"] === FILTER_TAGS.thingsToDo);
+      expect(sightCalls.map((q) => q["filter.location.radius"])).toEqual([undefined, "15000"]);
+    });
+
+    it("too few places within 15 km: widen once to 25 km for the empty slots, never further", async () => {
+      mock = await startQlooMock({
+        places: [
+          { name: "West Beach", country: "MU", ...SIGHT, ...WEST, affinity: 0.9 },
+          { name: "West Gardens", country: "MU", ...SIGHT, ...at(WEST, 0.05), affinity: 0.6 },
+          // About 20 km away: only after widening.
+          { name: "Hill Kitchen", country: "MU", ...RESTAURANT, ...at(WEST, -0.18), affinity: 0.5 },
+          // About 40 km away: never.
+          { name: "North Bar", country: "MU", ...BAR, ...NORTH, affinity: 0.99 },
+        ],
+      });
+      const out = ok(await planDay(music, liveDeps(mock)));
+      expect(out.day.map((s) => [s.slot, s.place])).toEqual([
+        ["morning", "West Beach"],
+        ["lunch", "Hill Kitchen"],
+        ["afternoon", "West Gardens"],
+      ]);
+      expect(out.area).toEqual({ around: "West Beach", radius_km: 25 });
+      const radii = insightsCalls(mock).map((q) => `${q["filter.tags"]?.split(":").pop()} ${q["filter.location.radius"] ?? "island"}`);
+      expect(radii.sort()).toEqual(["bar 15000", "bar 25000", "restaurant 15000", "restaurant 25000", "tourist_attraction island"]);
+    });
+
+    it("Qloo ignoring the radius: far places are still dropped", async () => {
+      const places: MockPlace[] = [
+        { name: "West Beach", country: "MU", ...SIGHT, ...WEST, affinity: 0.9 },
+        { name: "North Grill", country: "MU", ...RESTAURANT, ...NORTH, affinity: 0.99 },
+        { name: "West Grill", country: "MU", ...RESTAURANT, ...WEST, affinity: 0.5 },
+      ];
+      mock = await startQlooMock();
+      // Answers filter.tags but not filter.location.
+      mock.setHandler((req, res) => {
+        const q = queryOf(req);
+        if (req.url.startsWith("/v2/insights")) return json(res, 200, { results: { entities: mockInsights(places, { "filter.tags": q["filter.tags"]! }) } });
+        return qlooHandler({})(req, res);
+      });
+      const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }], pace: "relaxed" }), liveDeps(mock)));
+      // North Grill (the best score, 40 km away) is neither lunch nor, after widening, the evening.
+      expect(out.day.map((s) => s.place)).toEqual(["West Beach", "West Grill"]);
+    });
+
+    it("a town keeps the whole day there: filter.geocode.name on every call, no radius", async () => {
+      mock = await startQlooMock({ places: FULL_DAY.map((p) => ({ ...p, ...WEST })) });
+      const out = ok(await planDay(planDayInput.parse({ tastes: [{ kind: "music", name: "Kaya" }], town: "Flic en Flac" }), liveDeps(mock)));
+      expect(out.area).toBeUndefined();
+      expect(insightsCalls(mock).every((q) => q["filter.geocode.name"] === "Flic en Flac" && q["filter.location"] === undefined)).toBe(true);
+    });
+
+    it("demo: the whole day sits within the area's radius of the first stop", async () => {
+      for (const tastes of [
+        [{ kind: "music", name: "Bob Marley" }, { kind: "food", name: "seafood" }, { kind: "film", name: "Life of Pi" }],
+        [{ kind: "music", name: "Miles Davis" }, { kind: "food", name: "cafe" }, { kind: "book", name: "Norwegian Wood" }],
+        [{ kind: "film", name: "Moana" }, { kind: "food", name: "street food" }, { kind: "music", name: "Jack Johnson" }],
+      ]) {
+        const out = ok(await planDay(planDayInput.parse({ tastes }), demoDeps()));
+        expect(out.area, JSON.stringify(tastes)).toBeDefined();
+        expect(out.day.length, JSON.stringify(tastes)).toBeGreaterThanOrEqual(3);
+        for (const s of out.day.slice(1)) expect(s.km_from_start!, s.place).toBeLessThanOrEqual(out.area!.radius_km);
+      }
     });
   });
 

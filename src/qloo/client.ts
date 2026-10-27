@@ -61,6 +61,8 @@ export interface InsightsParams {
   locationQuery?: string;
   /** filter.geocode.name (usually a city or town) */
   town?: string;
+  /** filter.location=POINT(lon lat) and filter.location.radius (metres) */
+  near?: { lat: number; lon: number; radiusM: number };
   take: number;
 }
 
@@ -84,6 +86,11 @@ export function insightsParams(p: InsightsParams): Params {
   if (p.countryCode) out["filter.geocode.country_code"] = p.countryCode;
   if (p.locationQuery) out["filter.location.query"] = p.locationQuery;
   if (p.town) out["filter.geocode.name"] = p.town;
+  if (p.near) {
+    // WKT order: longitude first.
+    out["filter.location"] = `POINT(${p.near.lon} ${p.near.lat})`;
+    out["filter.location.radius"] = String(Math.round(p.near.radiusM));
+  }
   out["feature.explainability"] = "true";
   out.take = String(Math.max(1, Math.min(50, Math.round(p.take))));
   return out;
