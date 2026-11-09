@@ -1,11 +1,9 @@
-# https://qloo.ambree.ai: HTTPS only (websecure), its own Let's Encrypt certificate from
-# Traefik's `le` resolver. The same annotations as every Ingress on oraculum-prod
-# (k8s/oracle/alexa, site, bots in the monorepo); like them, no `tls:` stanza: Traefik's
-# router.tls annotation turns TLS on and the resolver supplies the certificate.
+# HTTPS only (websecure), with a Let's Encrypt certificate from Traefik's `le` resolver;
+# no `tls:` stanza: Traefik's router.tls annotation turns TLS on and the resolver supplies
+# the certificate. Set your own host below (the hosted demo, qloo.ambree.ai, is retired).
 #
-# ORDER: the A record qloo.ambree.ai -> 130.61.238.6 (Cloudflare, DNS-only) must resolve
-# publicly BEFORE the first apply: Traefik tries a certificate once and doesn't retry a
-# failed one on its own.
+# ORDER: the host's DNS record must resolve publicly BEFORE the first apply: Traefik tries
+# a certificate once and doesn't retry a failed one on its own.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

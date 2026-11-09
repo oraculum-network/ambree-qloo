@@ -2,8 +2,7 @@
 # Store the Qloo API key in Secret qloo/qloo-api (key QLOO_API_KEY), run on the host.
 #
 #   bash deploy/store-key.sh                 # hidden prompt
-#   security find-generic-password -s oraculum-qloo -a travelbook -w |
-#     ssh <admin>@<host> "sudo env KUBECTL='k3s kubectl' bash -c $(printf %q "$(cat deploy/store-key.sh)") store-key"
+#   <your password manager's CLI> | bash deploy/store-key.sh   # one line on stdin
 #
 # The key comes from a hidden prompt on a terminal, else one line on stdin (the rest of
 # stdin is ignored). It never goes in argv, an echo or a log: it reaches kubectl on stdin

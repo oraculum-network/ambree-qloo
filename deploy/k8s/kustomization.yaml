@@ -1,7 +1,7 @@
-# qloo.ambree.ai on oraculum-prod (k3s). Rendered with `kubectl kustomize deploy/k8s`.
-# The namespace, its PSA labels, NetworkPolicies, quota and the qloo-low PriorityClass come
-# from the monorepo's ops/oracle/security.sh (the qloo block), not from here. So does the
-# Secret qloo-api, which deploy/store-key.sh creates; until it exists the app runs in demo mode.
+# The app's manifests (k3s + Traefik). Rendered with `kubectl kustomize deploy/k8s`.
+# Create the namespace `qloo` first, with your cluster's own policies (Pod Security, network
+# policies, quota). The Secret qloo-api comes from deploy/store-key.sh; until it exists the app
+# runs in demo mode.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: qloo

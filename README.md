@@ -8,8 +8,8 @@ ranks real places on the island for those tastes, and the planner fills a mornin
 with distinct places, saying which of your tastes led to each one. Every reply has a `speech` field of at most two
 sentences, written to be read aloud, plus the structured detail.
 
-- **Site:** https://qloo.ambree.ai (planned; see `DEPLOY.md`)
-- **MCP endpoint:** `https://qloo.ambree.ai/mcp` (open; no login)
+- **Hosted demo: retired.** It ran at qloo.ambree.ai through the hackathon's judging (30 Oct to 5 Nov 2026) and was taken down on 9 Nov 2026. Run it locally (below; demo mode needs no key), or on your own cluster (`DEPLOY.md`).
+- **MCP endpoint (local run):** `http://localhost:8080/mcp` (open; no login)
 - **Licence:** MIT (`LICENSE`); third-party notices in `NOTICE.md`
 
 ## The tools
@@ -65,7 +65,7 @@ Any MCP client that speaks Streamable HTTP can connect to `/mcp`. For example, w
 npx @modelcontextprotocol/inspector
 ```
 
-Choose transport "Streamable HTTP" and URL `https://qloo.ambree.ai/mcp` (or `http://localhost:8080/mcp`), then call
+Choose transport "Streamable HTTP" and URL `http://localhost:8080/mcp`, then call
 `plan_day` with `{"tastes":[{"kind":"music","name":"Bob Marley"},{"kind":"food","name":"seafood"}]}`.
 
 The server is stateless: each POST is answered on its own, so a raw JSON-RPC `tools/call` works without a session.
